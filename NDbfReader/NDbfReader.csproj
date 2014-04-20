@@ -72,6 +72,9 @@
     <None Include="NDbfReader.nuspec" />
     <None Include="tempKey.snk" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="eMeL_ForkInfo.txt" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PreBuildEvent>if not exist "$(ProjectDir)key.snk" (

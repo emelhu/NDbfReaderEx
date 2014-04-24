@@ -5,12 +5,12 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("NDbfReader.Tests")]
-[assembly: AssemblyDescription("Test suite for NDbfReader")]
+[assembly: AssemblyTitle("NDbfReaderEx_Test")]
+[assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Stanislav Fajfr")]
-[assembly: AssemblyProduct("NDbfReader.Tests")]
-[assembly: AssemblyCopyright("Copyright © 2014 Stanislav Fajfr")]
+[assembly: AssemblyCompany("")]
+[assembly: AssemblyProduct("NDbfReaderEx_Test")]
+[assembly: AssemblyCopyright("Copyright ©  2014")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("1b5603e7-7766-4498-b183-0585a8408e11")]
+[assembly: Guid("0ba983ed-cea4-4a56-905e-a000f948d3af")]
 
 // Version information for an assembly consists of the following four values:
 //

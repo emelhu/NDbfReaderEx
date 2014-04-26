@@ -1,1 +1,1 @@
-.\.nuget\NuGet.exe restore NDbfReader.sln
+.\.nuget\NuGet.exe restore NDbfReaderEx.sln

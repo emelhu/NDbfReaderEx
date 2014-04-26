@@ -5,82 +5,63 @@ using System.Text;
 
 namespace NDbfReader
 {
+  /// <summary>
+  /// Extensions for for the <see cref="DbfTable"/> class.
+  /// </summary>
+  public static class TableExtensions
+  {
     /// <summary>
-    /// Extensions for for the <see cref="Table"/> class.
+    /// Loads the DBF table into a <see cref="DataTable"/> with the default ASCII encoding.
     /// </summary>
-    public static class TableExtensions
+    /// <param name="table">The DBF table to load.</param>
+    /// <returns>A <see cref="DataTable"/> loaded from the DBF table.</returns>
+    /// <exception cref="InvalidOperationException">Another reader of the DBF table is opened.</exception>
+    /// <exception cref="ObjectDisposedException">The DBF table is disposed.</exception>
+    public static DataTable AsDataTable(this DbfTable table)
     {
-        /// <summary>
-        /// Loads the DBF table into a <see cref="DataTable"/> with the default ASCII encoding.
-        /// </summary>
-        /// <param name="table">The DBF table to load.</param>
-        /// <returns>A <see cref="DataTable"/> loaded from the DBF table.</returns>
-        /// <exception cref="InvalidOperationException">Another reader of the DBF table is opened.</exception>
-        /// <exception cref="ObjectDisposedException">The DBF table is disposed.</exception>
-        public static DataTable AsDataTable(this Table table)
-        {
-            if(table == null)
-            {
-                throw new ArgumentNullException("table");
-            }
+      if (table == null)
+      {
+        throw new ArgumentNullException("table");
+      }
 
-            var dataTable = CreateDataTable(table);
-            FillData(table, dataTable, table.OpenReader());
-            return dataTable;
-        }
+      var dataTable = CreateDataTable(table);
 
-        /// <summary>
-        /// Loads the DBF table into a <see cref="DataTable"/>.
-        /// </summary>
-        /// <param name="table">The DBF table to load.</param>
-        /// <param name="encoding">The encoding that is used to load the rows content.</param>
-        /// <returns>A <see cref="DataTable"/> loaded from the DBF table.</returns>
-        /// <exception cref="InvalidOperationException">Another reader of the DBF table is opened.</exception>
-        /// <exception cref="ObjectDisposedException">The DBF table is disposed.</exception>
-        public static DataTable AsDataTable(this Table table, Encoding encoding)
-        {
-            if (table == null)
-            {
-                throw new ArgumentNullException("table");
-            }
-            if (encoding == null)
-            {
-                throw new ArgumentNullException("encoding");
-            }
+      FillData(table, dataTable);
 
-            var dataTable = CreateDataTable(table);
-            FillData(table, dataTable, table.OpenReader(encoding));
-            return dataTable;
-        }
-
-        private static DataTable CreateDataTable(Table table)
-        {
-            var dataTable = new DataTable()
-            {
-                Locale = CultureInfo.CurrentCulture
-            };
-
-            foreach (var column in table.Columns)
-            {
-                var columnType = Nullable.GetUnderlyingType(column.Type) ?? column.Type;
-                dataTable.Columns.Add(column.Name, columnType);
-            }
-
-            return dataTable;
-        }
-
-        private static void FillData(Table table, DataTable dataTable, Reader reader)
-        {
-            while (reader.Read())
-            {
-                var row = dataTable.NewRow();
-                foreach (var column in table.Columns)
-                {
-                    row[column.Name] = reader.GetValue(column) ?? DBNull.Value;
-                }
-
-                dataTable.Rows.Add(row);
-            }
-        }
+      return dataTable;
     }
+
+
+    private static DataTable CreateDataTable(DbfTable table)
+    {
+      var dataTable = new DataTable()
+      {
+        Locale = CultureInfo.CurrentCulture
+      };
+
+      foreach (var column in table.columns)
+      {
+        var columnType = Nullable.GetUnderlyingType(column.type) ?? column.type;
+        dataTable.Columns.Add(column.name, columnType);
+      }
+
+      return dataTable;
+    }
+
+    private static void FillData(DbfTable table, DataTable dataTable)
+    {
+      for (int i = 0; i < table.recCount; i++)
+      {
+        var rowDT  = dataTable.NewRow();
+        var recDBF = table.GetRow(i);
+
+        foreach (var column in table.columns)
+        {
+          rowDT[column.name] = recDBF.GetValue(column) ?? DBNull.Value;
+        }
+
+        dataTable.Rows.Add(rowDT);
+      }
+    }
+  }
 }

@@ -52,10 +52,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BooleanColumn.cs" />
+    <Compile Include="ClipperReader.cs" />
     <Compile Include="DateTimeColumn.cs" />
     <Compile Include="Column.cs" />
     <Compile Include="DbfRow.cs" />
-    <Compile Include="DbfTableReader.cs" />
     <Compile Include="DbfTable_2.cs" />
     <Compile Include="DbfTable.cs" />
     <Compile Include="DecimalColumn.cs" />

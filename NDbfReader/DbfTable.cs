@@ -5,7 +5,12 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Text;
 
+// contact:  emel@emel.hu
+// If you have question or comment send me it.
+// English is not my native language, please send criticism and/or correction.
+
 // git push -u origin master
+// https://github.com/emelhu/NDbfReader_eMeL_Fork.git
 
 namespace NDbfReader
 {
@@ -218,6 +223,19 @@ namespace NDbfReader
       Reader reader = new Reader(this, startRecNo);
 
       reader.skipDeleted = skipDeleted;
+
+      return reader;
+    }
+
+
+    public ClipperReader OpenClipperReader()
+    {
+      return new ClipperReader(this, this.skipDeleted);                                     
+    }
+
+    public ClipperReader OpenClipperReader(bool skipDeleted)
+    {
+      ClipperReader reader = new ClipperReader(this, skipDeleted);
 
       return reader;
     }

@@ -3,6 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
+// contact:  emel@emel.hu
+// If you have question or comment send me it.
+// English is not my native language, please send criticism and/or correction.
+
 namespace NDbfReader
 {
   /// <summary>
@@ -33,24 +37,13 @@ namespace NDbfReader
 
     public bool Read()
     {
-      bool skip;
-
       do 
       {
         row_ = dbfTable.GetRow(nextRecNo, false);                                             // Don't throw an exception, returns null if record not found
 
         nextRecNo++;
-        skip = false;
 
-        if (skipDeleted)
-        {
-          if (row_ != null)
-          {
-            skip = row_.deleted;
-          }
-        }
-
-      } while (skip);
+      } while (skipDeleted && (row_ != null) && row_.deleted);
 
       return (row_ != null);
     }
@@ -151,7 +144,7 @@ namespace NDbfReader
       return row.GetInt32(columnName);
     }
 
-    public virtual int GetInt32(IColumn column)
+    public int GetInt32(IColumn column)
     {
       return row.GetInt32(column);
     }

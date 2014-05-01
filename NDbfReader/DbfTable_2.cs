@@ -316,7 +316,7 @@ namespace NDbfReader
 
     #endregion
 
-    #region row positioning ---------------------------------------------------------------------------------
+    #region row read/write ----------------------------------------------------------------------------------
 
     public DbfRow GetRow(int recNo, bool throwException = false)
     {
@@ -344,6 +344,79 @@ namespace NDbfReader
       }
 
       return new DbfRow(recNo, buffer, _columns);
+    }
+
+    public bool UpdateRow(DbfRow row, bool throwException = true)
+    {
+      if (row == null)
+      {
+        throw ExceptionFactory.CreateArgumentException("UpdateRow(row)", "Null parameter invalid!");
+      }
+
+
+      if ((row.recNo < 0) || (row.recNo >= recCount))
+      {
+        if (throwException)
+        {
+          throw new Exception(String.Format("DbfTable.GetRow({0}): invalid record number! [count of records: {1}]", recNo, recCount));
+        }
+        else
+        {
+          return false;
+        }
+      }
+
+
+      if (row._buffer.Length != _header.rowLength)
+      {
+        throw ExceptionFactory.CreateArgumentException("UpdateRow(row)", "Length of buffer in row different then file rowlength!");
+      }
+
+
+      int offset = _header.firstRecordPosition + (row.recNo * _header.rowLength);
+
+      try
+      {
+        _stream.Write(row._buffer, offset, row._buffer.Length);
+      }
+      catch (Exception e)
+      {
+        throw new IOException(String.Format("DBF file is corrupted! [Write error at {0}. row!]", row.recNo), e);
+      }
+
+      row._modified = false;
+
+      return true;       
+    }
+
+    public bool InsertRow(DbfRow row, bool throwException = true)
+    {
+      if (row == null)
+      {
+        throw ExceptionFactory.CreateArgumentException("InsertRow(row)", "Null parameter invalid!");
+      }
+
+      row._recNo    = 99999999;         // TODO: !!!!!!!!!!!!!!!!!!!!!!
+      row._modified = false;
+
+      throw new NotImplementedException("InsertRow");
+    }
+
+    public bool WriteRow(DbfRow row, bool throwException = true)
+    {
+      if (row == null)
+      {
+        throw ExceptionFactory.CreateArgumentException("WriteRow(row)", "Null parameter invalid!");
+      }
+
+      if (row.recNo == int.MinValue)
+      {
+        return InsertRow(row, throwException);
+      }
+      else
+      {
+        return UpdateRow(row, throwException);
+      }
     }
 
     #endregion

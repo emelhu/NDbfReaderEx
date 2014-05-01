@@ -12,13 +12,106 @@ namespace NDbfReaderEx_Test
 
   class Program
   {
-    private static string[] dbfFiles = new string[6];
+    #region Start test --------------------------------------------------------------------------------------
 
     static void Main(string[] args)
     {
+      Console.WriteLine("*******************************************************************************");
       Console.WriteLine("************************* NDbfReaderEx_Test by eMeL ***************************");
+      Console.WriteLine("*******************************************************************************");
       Console.WriteLine();
 
+
+      char operation;
+
+      if (args.Length > 1)
+      { // first parameter [index: 0] is the name of program
+        operation = args[1][0];
+      }
+      else
+      {
+        Console.WriteLine("Select an NDbfReaderEx_Test operation:\n");
+        DisplayHelp(false);
+
+        Console.Write("\nPlease press the key of operation: ");
+
+        operation = (char)Console.ReadKey().KeyChar;
+
+        Console.WriteLine();
+      }
+
+      //
+
+      var  start            = DateTime.Now;
+      bool dispEllaptedTime = false;
+
+      switch (operation)
+      {
+        case '1':
+          TestDbaseAndClipperFiles();                                                    
+          dispEllaptedTime = false;
+          break;
+
+        case '2':
+          CreateTableAndWriteRows();
+          dispEllaptedTime = true;
+          break;
+
+        //case '3':
+          //DisplayTreeClass();
+          //break;    
+
+        default:
+          if (args.Length > 1)
+          {
+            DisplayHelp(true);
+          }
+          else
+          {
+            Console.WriteLine("!!!! invalid operation code !!!!");
+          }
+          dispEllaptedTime = false;
+          break;
+      }
+
+      //
+
+      if (dispEllaptedTime)
+      {
+        var stop = DateTime.Now;
+
+        TimeSpan elapsed = stop.Subtract(start);
+
+        Console.Write(" Elapsed time: ");
+        Console.WriteLine(elapsed.ToString());
+      }         
+
+      Console.WriteLine();
+      Console.WriteLine("...press 'enter' to close window.");
+      Console.ReadLine();      
+    }
+
+
+    public static void DisplayHelp(bool fullText)
+    {
+      if (fullText)
+      {
+        Console.WriteLine("usage NDbfReaderEx_Test <operation code>");
+        Console.WriteLine("  operation codes:");
+      }
+
+      Console.WriteLine("  '1' : Test read/content of dBbaseIII and Clipper files.");
+      Console.WriteLine("  '2' : Create test file and write rows/content.");
+      Console.WriteLine("  '3' : ........");
+    }
+    #endregion
+
+    #region Test '1' --------------------------------------------------------------------------------------
+
+    private static string[] dbfFiles = new string[6];
+
+    static void TestDbaseAndClipperFiles()
+    {
       dbfFiles[0] = "Test1.dbf";                                    // empty dBase
       dbfFiles[1] = "Test1C.dbf";                                   // empty Clipper
       dbfFiles[2] = "Test2.dbf";                                    // one null row dBase
@@ -120,6 +213,14 @@ namespace NDbfReaderEx_Test
       Console.WriteLine("More...");
       Console.ReadLine();
     }
+    #endregion
 
+    #region Test '2' --------------------------------------------------------------------------------------
+
+    private static void CreateTableAndWriteRows()
+    {
+
+    }
+    #endregion
   }
 }

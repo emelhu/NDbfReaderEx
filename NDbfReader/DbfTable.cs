@@ -39,9 +39,6 @@ namespace NDbfReader
 
     public bool     skipDeleted = true;                                                    // leave out deleted rows from result (Enumerate)
 
-     
-
-
     #endregion
 
     #region Constructor ---------------------------------------------------------------------------------
@@ -98,6 +95,37 @@ namespace NDbfReader
 
     #region Open DBF table ------------------------------------------------------------------------------
 
+    public static DbfTable Open(string path, DbfTableOpenMode openMode, Encoding encoding = null)
+    {
+      if (string.IsNullOrEmpty(path))
+      {
+        throw new ArgumentNullException("path");
+      }
+
+      FileAccess access;
+      FileShare  share;
+
+      switch (openMode)
+      {
+        case DbfTableOpenMode.Exclusive:
+          access = FileAccess.ReadWrite;
+          share  = FileShare.None;
+          break;
+        case DbfTableOpenMode.ReadWrite:
+          access = FileAccess.ReadWrite;
+          share  = FileShare.ReadWrite;
+          break;
+        case DbfTableOpenMode.Read:
+          access = FileAccess.Read;
+          share  = FileShare.ReadWrite;
+          break;
+        default:
+          throw ExceptionFactory.CreateArgumentException("DbfTable/Open(Openmode)", "Invalid open mode parameter!");
+      }
+
+      return Open(new FileStream(path, FileMode.Open, access, share), encoding);
+    }
+
     /// <summary>
     /// Opens a table from the specified file.
     /// </summary>
@@ -113,7 +141,7 @@ namespace NDbfReader
       }
 
       return Open(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite), encoding);
-    }
+    }    
 
     /// <summary>
     /// Opens a table from the specified stream.
@@ -292,5 +320,13 @@ namespace NDbfReader
     public int                    firstRecordPosition;
     public int                    rowLength;
     //#pragma warning restore 1591
+  }
+
+
+  public enum DbfTableOpenMode
+  {
+    Read,
+    ReadWrite,
+    Exclusive
   }
 }

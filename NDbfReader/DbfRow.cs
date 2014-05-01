@@ -8,20 +8,25 @@ namespace NDbfReader
 {
   /// <summary>
   /// Represent one row of DBF file. It is readable in detached mode too.
+  /// Content of record is modifiable, but you have to write back to DbfTable, when complet.
   /// </summary>
   public class DbfRow
   {
-    private readonly IColumn[] _columns;
-    private readonly byte[]    _buffer;
-    private readonly int       _recNo;
+    internal readonly IColumn[] _columns;
+    internal readonly byte[]    _buffer;
 
-    private const byte DELETED_ROW_FLAG = (byte)'*';
+    internal          int       _recNo;                                                                 // internal: DbfReaded/InsertRow() can modify it
+
+    internal          bool      _modified = false;                                                      // internal: DbfRead/UpdateRow() can clear it
+
+    private const byte DELETED_ROW_FLAG  = (byte)'*';
+    private const byte ACCEPTED_ROW_FLAG = 0x20;                                                        // blank - normal/live data (undeleted)                                        
 
     /// <summary>
     /// Contructor of row.
     /// </summary>
     /// <param name="recNo">No. of row in dbf file (first is 0)</param>
-    /// <param name="buffer">bytes of all record content</param>
+    /// <param name="buffer">bytes of entire record content</param>
     /// <param name="columns">DbfTable header information for detached mode</param>
     protected internal DbfRow(int recNo, byte[] buffer, IColumn[] columns)
     {
@@ -30,15 +35,34 @@ namespace NDbfReader
       this._recNo   = recNo;
     }
 
-    #region Get record status/info ------------------------------------------------------------------------
+    #region Record status/info ----------------------------------------------------------------------------
     
     public bool deleted                                                                 // syntax like dBase
     {
       get
       {
-        return (_buffer[0] == DELETED_ROW_FLAG);
+        return (_buffer[0] == DELETED_ROW_FLAG);                                        // signal of deleted state
+      }
+
+      set
+      {
+        if (_buffer[0] != ACCEPTED_ROW_FLAG) 
+        {
+          _modified  = true;
+          _buffer[0] = ACCEPTED_ROW_FLAG;                                               // signal of live data state
+        }
       }
     }
+
+
+    public bool modified
+    {
+      get
+      {
+        return _modified;                                         
+      }
+    }
+
 
     public int recNo 
     { 
@@ -394,6 +418,12 @@ namespace NDbfReader
 
       return typedColumn.LoadValue(_buffer);
     }
+    #endregion
+
+    #region field update ------------------------------------------------------------------------------
+
+    // TODO
+
     #endregion
 
     #region IsNull ------------------------------------------------------------------------------------------

@@ -1,7 +1,11 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Text;
+
+// git push -u origin master
 
 namespace NDbfReader
 {
@@ -10,13 +14,13 @@ namespace NDbfReader
   /// </summary>
   /// <example>
   /// <code>
-  /// using(var table = new DbfTable.Open(@"D:\Example\table.dbf"))
+  /// using(var table = new DbfTable.Open(@"D:\Example\table.dbf", Encoding.GetEncoding(437)))
   /// {
   ///     ...
   /// }
   /// </code>
   /// </example>
-  public partial class DbfTable : IDisposable
+  public partial class DbfTable : IDisposable, IEnumerable<DbfRow>
   {
     #region variables -------------------------------------------------------------------------------------
 
@@ -27,6 +31,11 @@ namespace NDbfReader
     private          DbfHeader    _header;    
     
     private          bool         _disposed = false;
+
+    public bool     skipDeleted = true;                                                    // leave out deleted rows from result (Enumerate)
+
+     
+
 
     #endregion
 
@@ -51,6 +60,17 @@ namespace NDbfReader
       }
 
       this._encoding = encoding;
+
+      this._columns = ReadDbfColumns(_stream, _encoding);
+
+      //
+
+      int calcLen = _header.firstRecordPosition + (_header.recCount * _header.rowLength);
+
+      if ((stream.Length < calcLen) || (stream.Length > calcLen + 1))  
+      { // dBase & Clipper different (There is or there isn't a 0x1F character at end of DBF data file .
+        throw ExceptionFactory.CreateArgumentOutOfRangeException("DBF table", "Datafile length error! [got: {0} expected: {1}]", stream.Length, calcLen);
+      }
     }
 
     static DbfTable()
@@ -178,6 +198,64 @@ namespace NDbfReader
       if (_disposed)
       {
         throw new ObjectDisposedException(GetType().FullName);
+      }
+    }
+    #endregion
+
+    #region Dbf reader/enumerator -------------------------------------------------------------------------
+    
+    /// <summary>
+    /// Compatibility behavior for original NDbfReader class of eXavera
+    /// https://github.com/eXavera/NDbfReader
+    /// </summary>
+    public Reader OpenReader(int startRecNo = 0)
+    {
+      return new Reader(this, startRecNo);                                                // skipDeleted inherited from this/DbfReader
+    }
+
+    public Reader OpenReader(bool skipDeleted, int startRecNo = 0)
+    {
+      Reader reader = new Reader(this, startRecNo);
+
+      reader.skipDeleted = skipDeleted;
+
+      return reader;
+    }
+
+    //
+
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+      return GetEnumerator();
+    }
+
+    public IEnumerator<DbfRow> GetEnumerator()
+    {
+      for (int i = 0; i < this.recCount; i++)
+      {
+        DbfRow row = this.GetRow(i);
+
+        if (this.skipDeleted && row.deleted)
+        {
+          continue;
+        }
+
+        yield return row;
+      }
+    }
+
+    public IEnumerator<DbfRow> GetEnumerator(bool skipDeleted)
+    {
+      for (int i = 0; i < this.recCount; i++)
+      {
+        DbfRow row = this.GetRow(i);
+
+        if (skipDeleted && row.deleted)
+        {
+          continue;
+        }
+
+        yield return row;
       }
     }
     #endregion

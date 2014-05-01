@@ -30,6 +30,17 @@ namespace NDbfReader
     /// <summary>
     /// Gets the <c>DBF</c> type of a column value.
     /// </summary>
-    byte dbfType { get; }                                           
+    NativeColumnType dbfType { get; }
+
+    /// <summary>
+    /// Gets the width to display of a column value.
+    /// If column type is memo, returns 0 because it is variable width.
+    /// </summary>
+    int displayWidth { get; }
+
+    /// <summary>
+    /// Better side to display of a column value.
+    /// </summary>
+    bool leftSideDisplay { get; }                 
   }
 }

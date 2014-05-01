@@ -64,6 +64,7 @@
     <Compile Include="Int32Column.cs" />
     <Compile Include="NativeColumnType.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Reader.cs" />
     <Compile Include="StringColumn.cs" />
     <Compile Include="TableExtensions.cs" />
   </ItemGroup>
@@ -72,7 +73,7 @@
     <None Include="tempKey.snk" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="eMeL_ForkInfo.txt" />
+    <Content Include="ReadMe__and__eMeL_ForkInfo.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

@@ -112,9 +112,9 @@ namespace NDbfReader
     /// The underlying stream is non-seekable and columns are read out of order.
     /// </exception>
     /// <exception cref="ObjectDisposedException">The parent table is disposed.</exception>
-    public virtual decimal? GetDecimal(string columnName)
+    public virtual decimal GetDecimal(string columnName)
     {
-      return GetValue<decimal?>(columnName);
+      return GetValue<decimal>(columnName);
     }
 
     /// <summary>
@@ -134,9 +134,9 @@ namespace NDbfReader
     /// The underlying stream is non-seekable and columns are read out of order.
     /// </exception>
     /// <exception cref="ObjectDisposedException">The parent table is disposed.</exception>
-    public virtual decimal? GetDecimal(IColumn column)
+    public virtual decimal GetDecimal(IColumn column)
     {
-      return GetValue<decimal?>(column);
+      return GetValue<decimal>(column);
     }
 
     /// <summary>
@@ -156,9 +156,9 @@ namespace NDbfReader
     /// The underlying stream is non-seekable and columns are read out of order.
     /// </exception>
     /// <exception cref="ObjectDisposedException">The parent table is disposed.</exception>
-    public virtual DateTime? GetDate(string columnName)
+    public virtual DateTime GetDate(string columnName)
     {
-      return GetValue<DateTime?>(columnName);
+      return GetValue<DateTime>(columnName);
     }
 
     /// <summary>
@@ -178,9 +178,9 @@ namespace NDbfReader
     /// The underlying stream is non-seekable and columns are read out of order.
     /// </exception>
     /// <exception cref="ObjectDisposedException">The parent table is disposed.</exception>
-    public virtual DateTime? GetDate(IColumn column)
+    public virtual DateTime GetDate(IColumn column)
     {
-      return GetValue<DateTime?>(column);
+      return GetValue<DateTime>(column);
     }
 
     /// <summary>
@@ -200,9 +200,9 @@ namespace NDbfReader
     /// The underlying stream is non-seekable and columns are read out of order.
     /// </exception>
     /// <exception cref="ObjectDisposedException">The parent table is disposed.</exception>
-    public virtual bool? GetBoolean(string columnName)
+    public virtual bool GetBoolean(string columnName)
     {
-      return GetValue<bool?>(columnName);
+      return GetValue<bool>(columnName);
     }
 
 
@@ -223,9 +223,9 @@ namespace NDbfReader
     /// The underlying stream is non-seekable and columns are read out of order.
     /// </exception>
     /// <exception cref="ObjectDisposedException">The parent table is disposed.</exception>
-    public virtual bool? GetBoolean(IColumn column)
+    public virtual bool GetBoolean(IColumn column)
     {
-      return GetValue<bool?>(column);
+      return GetValue<bool>(column);
     }
 
     /// <summary>
@@ -398,7 +398,7 @@ namespace NDbfReader
 
     #region IsNull ------------------------------------------------------------------------------------------
 
-    protected bool IsNull<T>(string columnName)
+    public bool IsNull(string columnName)
     {
       if (columnName == null)
       {
@@ -407,11 +407,10 @@ namespace NDbfReader
 
       var column = (Column)FindColumnByName(columnName);
 
-      return IsNull<T>(column);
+      return IsNull(column);
     }
 
-
-    public bool IsNull<T>(IColumn column)
+    public bool IsNull(IColumn column)
     {
       if (column == null)
       {
@@ -420,12 +419,9 @@ namespace NDbfReader
 
       CheckColumn(column);
 
-      if (column.type != typeof(T))
-      {
-        throw new ArgumentOutOfRangeException("column", "The column's type does not match the method's return type.");
-      }
+      Type type = column.type;
 
-      var typedColumn = (Column<T>)column;
+      var typedColumn = column as Column;
 
       return typedColumn.IsNull(_buffer);
     }

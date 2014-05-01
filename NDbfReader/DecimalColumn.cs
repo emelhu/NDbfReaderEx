@@ -10,7 +10,7 @@ namespace NDbfReader
   /// Represents a <see cref="Decimal"/> column.
   /// </summary>
   [DebuggerDisplay("Decimal {Name}")]
-  public class DecimalColumn : Column<decimal?>
+  public class DecimalColumn : Column<decimal>
   {
     private static readonly NumberFormatInfo DecimalNumberFormat = new NumberFormatInfo() { NumberDecimalSeparator = "." };
 
@@ -22,7 +22,7 @@ namespace NDbfReader
     /// <param name="size">The column size in bytes.</param>
     /// <exception cref="ArgumentNullException"><paramref name="name"/> is <c>null</c> or empty.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="offset"/> is &lt; 0 or <paramref name="size"/> is &lt; 0.</exception>
-    public DecimalColumn(string name, byte dbfType, int offset, short size, short dec)
+    public DecimalColumn(string name, NativeColumnType dbfType, int offset, short size, short dec)
       : base(name, dbfType, offset, size, dec, null)
     {
     }
@@ -32,28 +32,41 @@ namespace NDbfReader
     /// </summary>
     /// <param name="buffer">The byte array from which a value should be loaded. The buffer length is always at least equal to the column size.</param>
     /// <returns>A column value.</returns>
-    protected override decimal? ValueFromRowBuffer(byte[] rowBuffer)
+    protected override decimal ValueFromRowBuffer(byte[] rowBuffer)
     {
-      var stringValue = Encoding.ASCII.GetString(rowBuffer, _offset, _size);
-
-      if (stringValue.Length == 0)
+      if (IsNull(rowBuffer))
       {
-        return null;
+        return 0;
       }
 
-      var lastChar = stringValue.Last();
-
-      if (lastChar == ' ' || lastChar == '?')
-      {
-        return null;
-      }
+      var stringValue = Encoding.ASCII.GetString(rowBuffer, offset_ + 1, size_); 
 
       return decimal.Parse(stringValue, NumberStyles.Float | NumberStyles.AllowLeadingWhite, DecimalNumberFormat);
     }
 
-    public override bool IsNull(byte[] _buffer)
+    public override bool IsNull(byte[] rowBuffer)
     {
-      return false;                                                 // TODO: !check conditions!
+      for (int i = 0; i < size_; i++)
+      {
+        byte b = rowBuffer[offset_ + 1 + i];
+
+        if (b == 0x00)
+        { // not standard, but maybe a C/C++ EndOfString character used
+          break;
+        }
+
+        if (b == 0x3F)
+        { // '?' character found
+          break;
+        }
+
+        if (b != 0x20)
+        { // if contains any non blank character it isn't null value
+          return false;
+        }
+      }
+
+      return true;                            
     }
   }
 }

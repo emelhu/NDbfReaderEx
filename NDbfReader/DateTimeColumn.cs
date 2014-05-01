@@ -8,7 +8,7 @@ namespace NDbfReader
   /// Represents a <see cref="DateTime"/> column.
   /// </summary>
   [DebuggerDisplay("DateTime {Name}")]
-  public class DateTimeColumn : Column<DateTime?>
+  public class DateTimeColumn : Column<DateTime>
   {
     /// <summary>
     /// Initializes a new instance with the specified name and offset.
@@ -17,7 +17,7 @@ namespace NDbfReader
     /// <param name="offset">The column offset in a row in bytes.</param>
     /// <exception cref="ArgumentNullException"><paramref name="name"/> is <c>null</c> or empty.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="offset"/> is &lt; 0.</exception>
-    public DateTimeColumn(string name, byte dbfType, int offset)
+    public DateTimeColumn(string name, NativeColumnType dbfType, int offset)
       : base(name, dbfType, offset, 8, 0, null)
     {
     }
@@ -28,21 +28,42 @@ namespace NDbfReader
     /// <param name="buffer">The byte array from which a value should be loaded. The buffer length is always at least equal to the column size.</param>
     /// <param name="encoding">The encoding that should be used when loading a value. The encoding is never <c>null</c>.</param>
     /// <returns>A column value.</returns>
-    protected override DateTime? ValueFromRowBuffer(byte[] rowBuffer)
+    protected override DateTime ValueFromRowBuffer(byte[] rowBuffer)
     {
-      var stringValue = Encoding.ASCII.GetString(rowBuffer, _offset, _size);
-
-      if (string.IsNullOrWhiteSpace(stringValue))
+      if (IsNull(rowBuffer))
       {
-        return null;
+        return DateTime.MinValue;
       }
+
+
+      var stringValue = Encoding.ASCII.GetString(rowBuffer, offset_ + 1, size_);
 
       return DateTime.ParseExact(stringValue, "yyyyMMdd", null);
     }
 
-    public override bool IsNull(byte[] _buffer)
+    public override bool IsNull(byte[] rowBuffer)
     {
-      return false;                                                 // TODO: !check conditions!
+      for (int i = 0; i < size_; i++)
+			{
+	      byte b = rowBuffer[offset_ + 1 + i];
+
+        if (b == 0x00)
+        { // not standard, but maybe a C/C++ EndOfString character used
+          break;
+        }
+
+        if (b == 0x3F)
+        { // '?' character found
+          break;
+        }
+
+        if (b != 0x20)
+        { // if contains any non blank character it isn't null value
+          return false;
+        }
+      }
+
+      return true;                      
     }
   }
 }

@@ -117,7 +117,7 @@ namespace NDbfReader
         throw new IOException("Not a DBF file! ('DBF File length' is too short!)");
       }
 
-      using (BinaryReader reader = new BinaryReader(stream))
+      BinaryReader reader = new BinaryReader(stream);                           // don't use using '(BinaryReader reader...' because 'using' dispose 'stream' too!
       {        
         header.type = (DbfFileTypes)(reader.ReadByte());                        // pos: 0          -- DBF File type: 
 
@@ -211,9 +211,11 @@ namespace NDbfReader
 
       stream.Position = firstFieldSubrecord;
 
+      int calcOffset = 0;
+
       for (int i = 0; (i < maxColumnCount); i++)
       {
-        IColumn column = GetNextColumnDefinition(stream, encoding);
+        IColumn column = GetNextColumnDefinition(stream, encoding, calcOffset);
 
         if (column == null)
         { // No more column definition
@@ -222,6 +224,7 @@ namespace NDbfReader
         else
         { // Store column definition
           columns.Add(column);
+          calcOffset += column.size;
         }
       }
 
@@ -233,17 +236,17 @@ namespace NDbfReader
       return columns.ToArray();                                                            
     }
 
-    private static Column GetNextColumnDefinition(Stream stream, Encoding encoding)
+    private static Column GetNextColumnDefinition(Stream stream, Encoding encoding, int calcOffset)
     { // If there isn't more column definition return null.
-      string columnName;
-      byte   columnType;
-      int    columnOffset;
-      short  columnSize;
-      short  columnDec;
+      string            columnName;
+      NativeColumnType  columnType;
+      int               columnOffset;                                           // isn't stored by dBase/Clipper, must calculate by 'calcOffset'
+      short             columnSize;
+      short             columnDec;
 
       //
 
-      byte[] buffer = new byte[10];                                             // http://www.dbf2002.com/dbf-file-format.html "Field name with a maximum of 10 characters. If less than 10, it is padded with null characters (0x00)."
+      byte[] buffer = new byte[11];                                             // http://www.dbf2002.com/dbf-file-format.html "Field name with a maximum of 10 characters. If less than 10, it is padded with null characters (0x00)."
 
       int readed = stream.Read(buffer, 0, buffer.Length);
 
@@ -279,17 +282,19 @@ namespace NDbfReader
 
       //
 
-      using (BinaryReader reader = new BinaryReader(stream))
-      {
-        columnType   = reader.ReadByte();                                                 
-        columnOffset = reader.ReadInt32();
-        columnSize   = reader.ReadByte();
-        columnDec    = reader.ReadByte();
+      BinaryReader reader = new BinaryReader(stream);                                 // don't use 'using (BinaryReader reader...' because 'using' dispose 'stream' too.
+
+      columnType   = (NativeColumnType)reader.ReadByte();                                                 
+      columnOffset = reader.ReadInt32();
+      columnSize   = reader.ReadByte();
+      columnDec    = reader.ReadByte();
         
-        reader.ReadBytes(14);                                                           // skip don't used and reserved caharacters
-      }
-      
+      reader.ReadBytes(14);                                                           // skip don't used and reserved caharacters
+      reader = null;
+
       //
+
+      columnOffset = calcOffset;                                                      // isn't stored in header by dBase/Clipper, must calculate by 'calcOffset'                                                  
 
       switch (columnType)
       {
@@ -330,6 +335,7 @@ namespace NDbfReader
       int    offset = _header.firstRecordPosition + (recNo * _header.rowLength);
       byte[] buffer = new byte[_header.rowLength];
 
+      _stream.Position = offset;
       int readed = _stream.Read(buffer, 0, _header.rowLength);
 
       if (readed != _header.rowLength)

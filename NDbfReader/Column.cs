@@ -8,12 +8,15 @@ namespace NDbfReader
   /// </summary>
   public abstract class Column : IColumn
   {
-    protected readonly string   _name;
-    protected readonly short    _size;
-    protected readonly int      _offset;
-    protected readonly Encoding _encoding;
-    protected readonly short    _dec;
-    protected readonly byte     _dbfType;
+    protected readonly string           name_;
+    protected readonly short            size_;
+    protected readonly int              offset_;
+    protected readonly Encoding         encoding_;
+    protected readonly short            dec_;
+    protected readonly NativeColumnType dbfType_;
+
+    protected int                       displayWidth_;                                              // later it can be modified
+    protected bool                      leftSideDisplay_;                                           // later it can be modified
 
     /// <summary>
     /// Initializes a new instance with the specified name, offset and size.
@@ -24,14 +27,14 @@ namespace NDbfReader
     /// <param name="encoding">The encoding of column's content bytes.</param>
     /// <exception cref="ArgumentNullException"><paramref name="name"/> is <c>null</c> or empty.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="offset"/> is &lt; 1 or <paramref name="size"/> is &lt; 1.</exception>
-    protected internal Column(string name, byte dbfType, int offset, short size, short dec, Encoding encoding)
+    protected internal Column(string name, NativeColumnType dbfType, int offset, short size, short dec, Encoding encoding)
     {
       if (string.IsNullOrEmpty(name))
       {
         throw new ArgumentNullException("name");
       }
 
-      if (offset < 1)
+      if (offset < 0)
       {
         throw new ArgumentOutOfRangeException("offset");
       }
@@ -41,12 +44,36 @@ namespace NDbfReader
         throw new ArgumentOutOfRangeException("size");
       }
 
-      this._name = name;
-      this._dbfType = dbfType;
-      this._offset = offset;
-      this._size = size;
-      this._dec = dec;
-      this._encoding = encoding;
+      this.name_     = name;
+      this.dbfType_  = dbfType;
+      this.offset_   = offset;
+      this.size_     = size;
+      this.dec_      = dec;
+      this.encoding_ = encoding;
+
+      displayWidth_    = size;                                                          // good for a few types of colums (for example string, bool)
+      leftSideDisplay_ = true;
+
+      switch (dbfType)
+      {
+        case NativeColumnType.Date:
+          displayWidth_ = 10;                                                           // yyyy.mm.dd
+          break;
+
+        case NativeColumnType.Float:
+        case NativeColumnType.Numeric:
+          if (dec > 0)
+          {
+            displayWidth_++;
+          }
+          leftSideDisplay_ = false;
+          break;
+
+        case NativeColumnType.Long:
+          displayWidth_    = 11;                                                        // -2000000000
+          leftSideDisplay_ = false;
+          break;
+      }
     }
 
     /// <summary>
@@ -56,7 +83,7 @@ namespace NDbfReader
     {
       get
       {
-        return _name;
+        return name_;
       }
     }
 
@@ -67,7 +94,7 @@ namespace NDbfReader
     {
       get
       {
-        return _offset;
+        return offset_;
       }
     }
 
@@ -78,7 +105,7 @@ namespace NDbfReader
     {
       get
       {
-        return _size;
+        return size_;
       }
     }
 
@@ -89,18 +116,42 @@ namespace NDbfReader
     {
       get
       {
-        return _dec;
+        return dec_;
       }
     }
 
     /// <summary>
     /// Gets the <c>DBF</c> type of a column value.
     /// </summary>
-    public byte dbfType
+    public NativeColumnType dbfType
     {
       get
       {
-        return _dbfType;
+        return dbfType_;
+      }
+    }
+
+    /// <summary>
+    /// Gets the width to display of a column value.
+    /// If column type is memo, returns 0 because it is variable width.
+    /// </summary>
+    public int displayWidth
+    {
+      get
+      {
+        return displayWidth_;
+      }
+    }
+
+
+    /// <summary>
+    /// Better side to display of a column value.
+    /// </summary>
+    public bool leftSideDisplay
+    {
+      get
+      {
+        return leftSideDisplay_;
       }
     }
 
@@ -138,7 +189,7 @@ namespace NDbfReader
     /// <param name="size">The column size in bytes.</param>
     /// <exception cref="ArgumentNullException"><paramref name="name"/> is <c>null</c> or empty.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="offset"/> is &lt; 0 or <paramref name="size"/> is &lt; 0.</exception>
-    protected Column(string name, byte dbfType, int offset, short size, short dec, Encoding encoding)
+    protected Column(string name, NativeColumnType dbfType, int offset, short size, short dec, Encoding encoding)
       : base(name, dbfType, offset, size, dec, encoding)
     {
     }
@@ -170,7 +221,7 @@ namespace NDbfReader
         throw new ArgumentNullException("rowBuffer");
       }
 
-      if (rowBuffer.Length < (_offset + _size - 1))
+      if (rowBuffer.Length < (offset_ + size_ - 1))
       {
         throw ExceptionFactory.CreateArgumentException("rowBuffer", "The rowBuffer must have enought bytes.");
       }

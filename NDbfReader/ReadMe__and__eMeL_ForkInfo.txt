@@ -17,6 +17,8 @@ If you have readed necessary rows of dbf file you can close DbfTable, but you ca
 
 You have got a dBase/Clipper syntax/operating mode like extension for DbfTable, called DbfTableReader.
 
+[A lot of things complettely redesigned and reimplemented for extendable code and simpler and flexible usage]
+
 ***************************************************************************************************
 
 If you have question or comment send me it.
@@ -25,5 +27,9 @@ English is not my native language, please send criticism and/or correction.
 
 
 Laszlo Moravecz / www.emel.hu  emel@emel.hu
+
+***************************************************************************************************
+
+Plan: add a simple row update and insert feature
 
 ***************************************************************************************************

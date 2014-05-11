@@ -8,7 +8,8 @@ using System.Threading.Tasks;
 
 namespace NDbfReaderEx_Test
 {
-  using NDbfReader;
+  using System.IO;
+  using NDbfReaderEx;
 
   class Program
   {
@@ -57,9 +58,15 @@ namespace NDbfReaderEx_Test
           dispEllaptedTime = true;
           break;
 
-        //case '3':
-          //DisplayTreeClass();
-          //break;    
+        case '3':
+          ShowRawDataTo();
+          dispEllaptedTime = false;
+          break;
+
+        case '4':
+          DisplayMemo();
+          dispEllaptedTime = false;
+          break;
 
         default:
           if (args.Length > 1)
@@ -91,7 +98,6 @@ namespace NDbfReaderEx_Test
       Console.ReadLine();      
     }
 
-
     public static void DisplayHelp(bool fullText)
     {
       if (fullText)
@@ -102,7 +108,8 @@ namespace NDbfReaderEx_Test
 
       Console.WriteLine("  '1' : Test read/content of dBbaseIII and Clipper files.");
       Console.WriteLine("  '2' : Create test file and write rows/content.");
-      Console.WriteLine("  '3' : ........");
+      Console.WriteLine("  '3' : Show raw data too.");
+      Console.WriteLine("  '4' : Show memo field content.");
     }
     #endregion
 
@@ -127,7 +134,7 @@ namespace NDbfReaderEx_Test
 
       foreach (string filename in dbfFiles)
       {
-        DisplayRows(filename);
+        DisplayRows(filename, false);
         More();
       }      
     }
@@ -152,9 +159,11 @@ namespace NDbfReaderEx_Test
       Console.WriteLine("===============================================================================");
     }
 
-    static void DisplayRows(string filename)
+    static void DisplayRows(string filename, bool rawDataToo = false)
     {
       Console.WriteLine("'" + filename + "':");
+
+      bool nullFound = false;
 
       using (DbfTable test = DbfTable.Open(filename, Encoding.GetEncoding(437)))
       {
@@ -170,6 +179,14 @@ namespace NDbfReaderEx_Test
           }
 
           columnWidth[i] = Math.Max(width, test.columns[i].name.Length);
+
+          if (test.columns[i].type == typeof(bool))
+          {
+            if (columnWidth[i] < 5)
+            {
+              columnWidth[i] = 5;
+            }
+          }
         }
 
 
@@ -177,10 +194,11 @@ namespace NDbfReaderEx_Test
 
         for (int i = 0; (i < test.columns.Count); i++)
         {
-          string format = " {0," + (test.columns[i].leftSideDisplay ? "-" : "") + columnWidth[i] + "}";
+          string format = "|{0," + (test.columns[i].leftSideDisplay ? "-" : "") + columnWidth[i] + "}";
           line += String.Format(format, test.columns[i].name);
         }
 
+        line += "|";
         Console.WriteLine(line);
 
 
@@ -190,18 +208,63 @@ namespace NDbfReaderEx_Test
 
           for (int i = 0; (i < test.columns.Count); i++)
           {
-            string format = " {0," + (test.columns[i].leftSideDisplay ? "-" : "") + columnWidth[i] + "}";
+            IColumn col = test.columns[i];
 
-            if (test.columns[i].type == typeof(DateTime))
+            string format = "|{0," + (col.leftSideDisplay ? "-" : "") + columnWidth[i] + "}";
+
+            if (col.type == typeof(DateTime))
             {
-              format = " {0:yyyy-MM-dd}";
+              format = "|{0:yyyy-MM-dd}";
             }
 
-            
-            line += String.Format(format, row.GetValue(test.columns[i]));
+            object output = row.GetValue(col);
+
+            if (row.IsNull(col))
+            {
+              output = "¤";
+
+              if (col.type == typeof(DateTime))
+              {
+                format = "|{0,10}";
+              }
+
+              nullFound = true;
+            }
+
+            line += String.Format(format, output);
           }
 
+          line += "|";
           Console.WriteLine(line);
+
+          //
+
+          if (rawDataToo)
+          {
+            line = String.Empty;
+
+            for (int i = 0; (i < test.columns.Count); i++)
+            {
+              string format = "|{0,-" + columnWidth[i] + "}";
+
+              string output = row.GetRawString(test.columns[i]);
+
+              if (output.Length < columnWidth[i])
+              {
+                output += "˘";
+              }
+
+              line += String.Format(format, output);
+            }
+
+            line += "| <RAW";
+            Console.WriteLine(line);
+          }
+        }
+
+        if (nullFound)
+        {
+          Console.WriteLine("['¤' means null field state]");
         }
       }
 
@@ -219,7 +282,48 @@ namespace NDbfReaderEx_Test
 
     private static void CreateTableAndWriteRows()
     {
+      string filename = "createdTest1.dbf";
 
+      File.Delete(filename);                                                  // DbfTable.Create can't overwrite exists file - it's a precautionary measure.
+
+      var columns = new List<ColumnDefinitionForCreateTable>();
+
+      columns.Add(ColumnDefinitionForCreateTable.StringField("AAA", 10));
+      columns.Add(ColumnDefinitionForCreateTable.NumericField("BBB", 8, 3));
+      columns.Add(ColumnDefinitionForCreateTable.DateField("CCC"));
+      columns.Add(ColumnDefinitionForCreateTable.LogicalField("DDD"));
+
+      using (var dbfTable = DbfTable.Create(filename, columns, DbfTable.CodepageCodes.CP_852))
+      {
+
+      }
+    }
+    #endregion
+
+    #region Test '3' ----------------------------------------------------------------------------------------
+
+    private static void ShowRawDataTo()
+    {
+      DisplayRows("Test3.dbf", true);
+      More();
+
+      DisplayRows("Test3C.dbf", true);
+    }
+    #endregion
+
+    #region Test '4' ----------------------------------------------------------------------------------------
+
+    private static void DisplayMemo()
+    {
+      string dbfFile = "Test4D.dbf";          // created by DBF Viewer Plus (by http://www.alexnolan.net/)
+
+      DisplayHeader(dbfFile);
+      More();
+
+      DisplayRows(dbfFile, false);
+      More();
+
+      DisplayRows(dbfFile, true);
     }
     #endregion
   }

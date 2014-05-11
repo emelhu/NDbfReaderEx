@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace NDbfReader
+namespace NDbfReaderEx
 {
   /// <summary>
   /// Represents a dBASE/Clipper column.

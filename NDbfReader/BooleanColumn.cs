@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 
-namespace NDbfReader
+namespace NDbfReaderEx
 {
   /// <summary>
   /// Represents a <see cref="Boolean"/> column.

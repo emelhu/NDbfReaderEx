@@ -2,7 +2,7 @@
 using System.Diagnostics;
 using System.Text;
 
-namespace NDbfReader
+namespace NDbfReaderEx
 {
   /// <summary>
   /// Represents a <see cref="Int32"/> column.

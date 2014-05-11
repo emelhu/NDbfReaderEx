@@ -1,4 +1,4 @@
-﻿namespace NDbfReader
+﻿namespace NDbfReaderEx
 {
   /// <summary>
   /// Supported native dBASE column types.
@@ -6,10 +6,16 @@
   public enum NativeColumnType : byte
   {
     /// <summary>
-    /// All OEM code page characters - padded with blanks to the width of the field. 
+    /// Characters - padded with blanks to the width of the field. 
     /// </summary>
     /// <remarks>C in ASCII</remarks>
     Char = 0x43,
+
+    /// <summary>
+    /// Memo (text blob) - stored separately in other datafile. 
+    /// </summary>
+    /// <remarks>M in ASCII</remarks>
+    Memo = 0x4D,
 
     /// <summary>
     /// 8 bytes - date stored as a string in the format YYYYMMDD.

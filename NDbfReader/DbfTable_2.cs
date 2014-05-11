@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace NDbfReader
+namespace NDbfReaderEx
 {
   public partial class DbfTable : IDisposable
   {
@@ -15,6 +16,7 @@ namespace NDbfReader
     private const byte headerRecordTerminator = 0x0D;                   // http://www.dbf2002.com/dbf-file-format.html   "n+1: Header record terminator (0x0D)"
     private const int  maxColumnCount         = 1024;                   // I extend it for myself: original 255  http://msdn.microsoft.com/en-us/library/3kfd3hw9(v=vs.80).aspx
     private const int  minDbfFileLength       = 32 + 32 + 1;            // http://www.dbf2002.com/dbf-file-format.html   (header info + 1 filed + headerRecordTerminator)
+    private const byte endOfFileTerminator    = 0x1A; 
 
     #endregion
 
@@ -163,7 +165,7 @@ namespace NDbfReader
           throw new IOException("Not a DBF file! (Number of records in file error!)");
         }
 
-        if ((header.firstRecordPosition < 65) || (header.firstRecordPosition > 64 + 32 * maxColumnCount + 1 + 264) ||
+        if ((header.firstRecordPosition < 65) || (header.firstRecordPosition > (32 + (32 * maxColumnCount) + 1 + 2 + 264)) ||
             (header.firstRecordPosition >= stream.Length))                    // !WARNING: I don't know valid limit
         {
           throw new IOException("Not a DBF file! (firstRecordPosition)");
@@ -300,15 +302,23 @@ namespace NDbfReader
       {
         case NativeColumnType.Char:
           return new StringColumn(columnName, columnType, columnOffset, columnSize, columnDec, encoding);
+
+        case NativeColumnType.Memo:
+          return new MemoColumn(columnName, columnType, columnOffset, columnSize, columnDec, encoding);
+
         case NativeColumnType.Date:
           return new DateTimeColumn(columnName, columnType, columnOffset);
+
         case NativeColumnType.Long:
           return new Int32Column(columnName, columnType, columnOffset);
+
         case NativeColumnType.Logical:
           return new BooleanColumn(columnName, columnType, columnOffset);
+
         case NativeColumnType.Numeric:
         case NativeColumnType.Float:
           return new DecimalColumn(columnName, columnType, columnOffset, columnSize, columnDec);
+
         default:
           throw ExceptionFactory.CreateNotSupportedException("The {0} column's type '{1}' is not supported.", columnName, columnType);
       }
@@ -320,6 +330,8 @@ namespace NDbfReader
 
     public DbfRow GetRow(int recNo, bool throwException = false)
     {
+      ThrowIfDisposed();
+
       if ((recNo < 0) || (recNo >= recCount))
       {
         if (throwException)
@@ -348,6 +360,8 @@ namespace NDbfReader
 
     public bool UpdateRow(DbfRow row, bool throwException = true)
     {
+      ThrowIfDisposed();
+
       if (row == null)
       {
         throw ExceptionFactory.CreateArgumentException("UpdateRow(row)", "Null parameter invalid!");
@@ -358,7 +372,7 @@ namespace NDbfReader
       {
         if (throwException)
         {
-          throw new Exception(String.Format("DbfTable.GetRow({0}): invalid record number! [count of records: {1}]", recNo, recCount));
+          throw new Exception(String.Format("DbfTable.GetRow({0}): invalid record number! [count of records: {1}]", row.recNo, recCount));
         }
         else
         {
@@ -391,6 +405,8 @@ namespace NDbfReader
 
     public bool InsertRow(DbfRow row, bool throwException = true)
     {
+      ThrowIfDisposed();
+
       if (row == null)
       {
         throw ExceptionFactory.CreateArgumentException("InsertRow(row)", "Null parameter invalid!");
@@ -424,6 +440,250 @@ namespace NDbfReader
     #region row data read -----------------------------------------------------------------------------------
     #endregion
 
+    #region CreateFile --------------------------------------------------------------------------------------
 
+    private static DbfTable CreateHeader_DBF(Stream stream, 
+                                         IEnumerable<ColumnDefinitionForCreateTable> columns, 
+                                         DbfTableType tableType     = DbfTableType.Undefined,
+                                         CodepageCodes codepageCode = CodepageCodes.OEM,
+                                         Encoding encoding = null)
+    {
+      switch (tableType)
+      {
+        case DbfTableType.Clipper:
+        case DbfTableType.DBase3:
+        case DbfTableType.Undefined:
+          CreateHeader_dBase3(stream, columns, tableType, codepageCode);
+          break;
+        default:
+          throw ExceptionFactory.CreateArgumentException("tableType", "Invalid table type for CreateHeader_DBF() !");
+      }
+
+      Debug.Assert(! ((codepageCode == CodepageCodes.OEM) && (encoding != null)));
+      Debug.Assert(! ((codepageCode != CodepageCodes.OEM) && (encoding == null)));
+
+      DbfTable ret = new DbfTable(stream, encoding);
+
+      ret.tableType = tableType;
+
+      return ret;
+    }
+
+    private static void CreateHeader_dBase3(Stream stream, IEnumerable<ColumnDefinitionForCreateTable> columns, 
+                                            DbfTableType tableType     = DbfTableType.Undefined,
+                                            CodepageCodes codepageCode = CodepageCodes.OEM)
+    {
+      if (stream == null)
+      {
+        throw new ArgumentNullException("stream");
+      }
+
+      if (!stream.CanRead)
+      {
+        throw ExceptionFactory.CreateArgumentException("stream", "The stream does not allow creating (CanRead property returns false).");
+      }
+
+      if (!stream.CanWrite)
+      {
+        throw ExceptionFactory.CreateArgumentException("stream", "The stream does not allow creating (CanWrite property returns false).");
+      }
+
+      if (!stream.CanSeek)
+      {
+        throw ExceptionFactory.CreateArgumentException("stream", "The stream does not allow creating (CanSeek property returns false).");
+      }
+
+      //
+
+      var columnDefs = new List<ColumnDefinitionForCreateTable>(columns);
+
+      if (columnDefs.Count < 1)
+      {
+        throw ExceptionFactory.CreateArgumentException("columns", "Header definition is empty!");
+      }
+
+      DbfFileTypes dbfFileType = DbfFileTypes.DBase3;
+      short        lengthOfDataRecords = 1;                                         // 1 for 'delete flag'
+
+      foreach (ColumnDefinitionForCreateTable col in columnDefs)
+      {
+        if (col.dbfType == NativeColumnType.Memo)
+        {
+          dbfFileType = DbfFileTypes.DBase3M;
+        }
+
+        lengthOfDataRecords += col.size;      
+      }
+
+      //
+
+      short positionOfFirstDataRecord = (short)(32 + (columnDefs.Count * 32) + 1);                 
+
+      //
+
+      byte[] lastUpdate = new byte[3];
+
+      {
+        int year = DateTime.Now.Year - 2000;
+        int month = DateTime.Now.Month;
+        int day = DateTime.Now.Day;
+
+        lastUpdate[0] = (byte)year;
+        lastUpdate[1] = (byte)month;
+        lastUpdate[2] = (byte)day;
+      }
+
+      //
+
+      stream.SetLength(0);
+      BinaryWriter writer = new BinaryWriter(stream);                           // don't use using '(BinaryWriter reader...' because 'using' dispose 'stream' too!
+
+      writer.Write((byte)dbfFileType);                                          // http://www.dbf2002.com/dbf-file-format.html
+      writer.Write(lastUpdate);
+      writer.Write((Int32)0);                                                   // "Number of records in file"                             
+      writer.Write(positionOfFirstDataRecord);
+      writer.Write(lengthOfDataRecords);
+      writer.Write(new byte[16]);
+      writer.Write((byte)0);                                                    // "Table flags"
+      writer.Write((byte)codepageCode);                                         // 29. byte
+      writer.Write(new byte[2]);                                                // reserved
+
+      foreach (ColumnDefinitionForCreateTable col in columnDefs)
+      {
+        byte[] name = Encoding.ASCII.GetBytes(col.name);
+        Array.Resize<byte>(ref name, 11);
+        writer.Write(name);
+
+        writer.Write((byte)col.dbfType);
+
+        writer.Write((Int32)0);                                                 // "Displacement of field in record"  
+
+        writer.Write((byte)col.size);
+        writer.Write((byte)col.dec);
+
+        writer.Write(new byte[14]);                                             // reserved
+      }
+
+      writer.Write(headerRecordTerminator);                                     // "Header record terminator" 
+
+      //
+
+      if (tableType == DbfTableType.Clipper)
+      {
+        writer.Write((byte)0x00);                                               // Optional: Extra byte for Clipper (only after header) befor EOF
+      }
+      
+      writer.Write(endOfFileTerminator);
+    }
+    #endregion
+
+    #region MemoFile ----------------------------------------------------------------------------------------
+
+    public void JoinMemoStream(Stream fileStream, DbfTableType tableType)
+    {
+      if (this.tableType == DbfTableType.Undefined)
+      {
+        this.tableType = tableType; 
+      }
+      else if (this.tableType != tableType)
+      {
+        throw ExceptionFactory.CreateArgumentException("tableType", "Different dbf table type parameter value!");
+      }
+
+      //
+
+      //if (this.tableType == DbfTableType.Undefined)
+      //{ // Scan memo stream for detect type...
+      // ... there aren't any signature in DBT or FPT file we can't detect type of it.
+      //}
+
+      // TODO
+
+      switch (this.tableType)
+      {
+        case DbfTableType.Clipper:                                                         
+        case DbfTableType.DBase3:
+          this._memoFile = new MemoFileDBT(fileStream, this.encoding);
+          break;
+        case DbfTableType.Undefined:
+          throw ExceptionFactory.CreateArgumentException("tableType", "Don't be known the format of the memory stream!");
+        default:
+          throw new NotImplementedException();
+      }
+
+      //
+
+      var memoFields = from col in _columns
+                       where col.dbfType == NativeColumnType.Memo
+                       select col;
+
+      foreach (var colDef in memoFields)
+      {
+        MemoColumn memoColumn = colDef as MemoColumn;
+
+        Debug.Assert(memoColumn != null);
+
+        memoColumn.memoFile = this._memoFile;
+      }
+    }
+
+    private void JoinMemoFile()
+    {
+      string fileName = Path.GetFileNameWithoutExtension(this.fileNameDBF);
+
+      if (this.tableType == DbfTableType.Undefined)
+      { // Scan extension of files for detect type...
+        if (File.Exists(fileName + ".dbt"))
+        {
+          this.tableType = DbfTableType.DBase3;                                     // or DbfTableType.Clipper
+        }
+      }
+
+      //
+
+      switch (this.tableType)
+      {
+        case DbfTableType.Clipper:                                                         
+        case DbfTableType.DBase3:
+          fileName += ".dbt";
+          break;
+        case DbfTableType.Undefined:
+          throw ExceptionFactory.CreateArgumentException("tableType", "Don't be known the format of the memory file!");
+        default:
+          throw new NotImplementedException();
+      }
+
+      if (File.Exists(fileName))
+      {
+        this.fileNameMemo = fileName;
+
+        FileAccess access;
+        FileShare  share;
+
+        switch (openMode)
+        {
+          case DbfTableOpenMode.Exclusive:
+            access = FileAccess.ReadWrite;
+            share  = FileShare.None;
+            break;
+          case DbfTableOpenMode.ReadWrite:
+            access = FileAccess.ReadWrite;
+            share  = FileShare.ReadWrite;
+            break;
+          case DbfTableOpenMode.Read:
+            access = FileAccess.Read;
+            share  = FileShare.ReadWrite;
+            break;
+          default:
+            throw ExceptionFactory.CreateArgumentException("JoinMemoFile/Open(Openmode)", "Invalid open mode parameter!");
+        }
+
+        var stream = new FileStream(fileName, FileMode.Open, access, share);
+
+        JoinMemoStream(stream, this.tableType);
+      }
+    }
+
+    #endregion
   }
 }

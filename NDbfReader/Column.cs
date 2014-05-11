@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Text;
 
-namespace NDbfReader
+namespace NDbfReaderEx
 {
   /// <summary>
   /// The base class of all column types. Intended for internal usage. To define a custom column type, derive from the generic subclass <see cref="Column&lt;T&gt;"/>.
@@ -60,12 +60,16 @@ namespace NDbfReader
           displayWidth_ = 10;                                                           // yyyy.mm.dd
           break;
 
+        case NativeColumnType.Memo:
+          displayWidth_ = 30;                                                           // only a value, maybe good
+          break;
+
         case NativeColumnType.Float:
         case NativeColumnType.Numeric:
-          if (dec > 0)
-          {
-            displayWidth_++;
-          }
+          //if (dec > 0)
+          //{
+          //  displayWidth_++;                                                            // for decimal dot
+          //}
           leftSideDisplay_ = false;
           break;
 
@@ -175,6 +179,8 @@ namespace NDbfReader
     public abstract bool IsNull(byte[] rowBuffer);
   }
 
+
+
   /// <summary>
   /// The base class for all column types.
   /// </summary>
@@ -247,6 +253,5 @@ namespace NDbfReader
     protected abstract T ValueFromRowBuffer(byte[] rowBuffer);
 
     #endregion
-
   }
 }

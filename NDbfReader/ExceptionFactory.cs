@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Globalization;
 
-namespace NDbfReader
+namespace NDbfReaderEx
 {
     internal static class ExceptionFactory
     {

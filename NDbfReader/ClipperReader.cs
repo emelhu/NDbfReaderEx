@@ -7,7 +7,7 @@ using System.Text;
 // If you have question or comment send me it.
 // English is not my native language, please send criticism and/or correction.
 
-namespace NDbfReader
+namespace NDbfReaderEx
 {
   /// <summary>
   /// Compatibility class for original NDbfReader class of eXavera

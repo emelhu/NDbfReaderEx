@@ -3,7 +3,7 @@ using System.Data;
 using System.Globalization;
 using System.Text;
 
-namespace NDbfReader
+namespace NDbfReaderEx
 {
   /// <summary>
   /// Extensions for for the <see cref="DbfTable"/> class.

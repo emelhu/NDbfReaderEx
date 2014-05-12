@@ -37,58 +37,60 @@ namespace NDbfReaderEx
     /// <param name="buffer">The byte array from which a value should be loaded. The buffer length is always at least equal to the column size.</param>
     /// <param name="encoding">The encoding that should be used when loading a value. The encoding is never <c>null</c>.</param>
     /// <returns>A column text value, but null value signal if don't read from memo stream.</returns>
-    protected override string ValueFromRowBuffer(byte[] rowBuffer)
+    protected override string ValueFromRowBuffer(byte[] rowBuffer, ref byte[] cachedColumnData)
     {
-      if (IsNull(rowBuffer))
-      {
-        return String.Empty;
-      }
-
-      string memoText = null;                                                 // null, not Empty (null state mean: don't read from memo stream)
-
-      if (memoFile == null)
-      {
-        if (exceptionIfNoMemoStream)
+      if (cachedColumnData == null)
+      { // cachedColumnData for decrease stream read
+        if (IsNull(rowBuffer))
         {
-          throw ExceptionFactory.CreateNotSupportedException("memoFile", "Stream of memo text is not defined!");
+          return String.Empty;
+        }
+
+
+        if (memoFile == null)
+        {
+          if (exceptionIfNoMemoStream)
+          {
+            throw ExceptionFactory.CreateNotSupportedException("memoFile", "Stream of memo text is not defined!");
+          }
+          else
+          {
+            return null;
+          }
+        }
+        else if (memoFile.disposed)
+        {
+          if (exceptionIfNoMemoStream)
+          {
+            throw ExceptionFactory.CreateNotSupportedException("memoFile", "Stream of memo text is disposed!");
+          }
+          else
+          {
+            return null;
+          }
         }
         else
         {
-          return null;
+          string temp = Encoding.ASCII.GetString(rowBuffer, offset_ + 1, size_);
+
+          int endPos = temp.IndexOf('\0');
+          if (endPos >= 0)
+          {
+            temp = temp.Substring(0, endPos);
+          }
+
+          int memoIndex;
+
+          if (!int.TryParse(temp, out memoIndex))
+          {
+            throw ExceptionFactory.CreateNotSupportedException("memoIndex", "Content of memo field '{0}' invalid (It isn't a block number)!", temp);
+          }
+
+          cachedColumnData = memoFile.ReadMemoBytes(memoIndex);
         }
       }
-      else if (memoFile.disposed)
-      {
-        if (exceptionIfNoMemoStream)
-        {
-          throw ExceptionFactory.CreateNotSupportedException("memoFile", "Stream of memo text is disposed!");
-        }
-        else
-        {
-          return null;
-        }
-      }
-      else
-      {
-        string temp = Encoding.ASCII.GetString(rowBuffer, offset_ + 1, size_);             
 
-        int endPos = temp.IndexOf('\0');
-        if (endPos >= 0)
-        {
-          temp = temp.Substring(0, endPos);
-        }
-
-        int memoIndex;
-
-        if (! int.TryParse(temp, out memoIndex))
-        {
-          throw ExceptionFactory.CreateNotSupportedException("memoIndex", "Content of memo field '{0}' invalid (It isn't a block number)!", temp);
-        }
-
-        memoText = memoFile.ReadMemoText(memoIndex);
-      }
-
-      return memoText;                                              
+      return encoding_.GetString(cachedColumnData);                                              
     }
 
     public override bool IsNull(byte[] rowBuffer)

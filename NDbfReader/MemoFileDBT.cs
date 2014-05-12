@@ -56,17 +56,21 @@ namespace NDbfReaderEx
     /// </summary>
     /// <param name="blockNo">Pointer of first block in memo (DBT) file, readed from DBF's memo field.</param>
     /// <returns></returns>
-    public override string ReadMemoText(int blockNo)
+    public override byte[] ReadMemoBytes(int blockNo)
     {
       lock (lockObject)                                                                  
       {
         int size = ReadMemoArray(blockNo);
 
-        return encoding.GetString(memoBytes, 0, size);
+        byte[] retBytes = new byte[size];
+
+        Array.Copy(memoBytes, retBytes, size);
+
+        return retBytes;
       }
     }
 
-    public override int WriteMemoText(string memoText, int oldBlockNo = 0)
+    public override int WriteMemoBytes(byte[] newBytes, int oldBlockNo = 0)
     {
       throw new NotImplementedException();
     }

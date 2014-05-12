@@ -28,8 +28,8 @@ namespace NDbfReaderEx
     /// <param name="buffer">The byte array from which a value should be loaded. The buffer length is always at least equal to the column size.</param>
     /// <param name="encoding">The encoding that should be used when loading a value. The encoding is never <c>null</c>.</param>
     /// <returns>A column value.</returns>
-    protected override int ValueFromRowBuffer(byte[] rowBuffer)
-    {
+    protected override int ValueFromRowBuffer(byte[] rowBuffer, ref byte[] cachedColumnData)
+    { // This didn't use cachedColumnData, it for MemoColumn only
       return BitConverter.ToInt32(rowBuffer, offset_ + 1);
     }
 

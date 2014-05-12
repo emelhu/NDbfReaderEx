@@ -35,9 +35,9 @@ namespace NDbfReaderEx
 
     #region IMemoFile Members
 
-    public abstract string ReadMemoText(int blockNo);
+    public abstract byte[] ReadMemoBytes(int blockNo);
 
-    public abstract int WriteMemoText(string memoText, int oldBlockNo = 0);
+    public abstract int WriteMemoBytes(byte[] memoBytes, int oldBlockNo = 0);
     
     #endregion
 

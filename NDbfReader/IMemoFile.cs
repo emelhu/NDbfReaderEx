@@ -7,9 +7,9 @@ namespace NDbfReaderEx
 {
   public interface IMemoFile
   {
-    string ReadMemoText(int blockNo);
+    byte[] ReadMemoBytes(int blockNo);
 
-    int    WriteMemoText(string memoText, int oldBlockNo = 0);    
+    int WriteMemoBytes(byte[] newBytes, int oldBlockNo = 0);
 
     bool   disposed {get;}
   }

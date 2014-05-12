@@ -32,8 +32,8 @@ namespace NDbfReaderEx
     /// </summary>
     /// <param name="buffer">The byte array from which a value should be loaded. The buffer length is always at least equal to the column size.</param>
     /// <returns>A column value.</returns>
-    protected override decimal ValueFromRowBuffer(byte[] rowBuffer)
-    {
+    protected override decimal ValueFromRowBuffer(byte[] rowBuffer, ref byte[] cachedColumnData)
+    { // This didn't use cachedColumnData, it for MemoColumn only
       if (IsNull(rowBuffer))
       {
         return 0;

@@ -146,11 +146,6 @@ namespace NDbfReaderEx
     {
       CheckColumn(column);
 
-      if (column.dbfType == NativeColumnType.Memo)
-      {
-        return GetMemoText(column);                                  // for detached mode and performance: return cached memo value if available or read it and store to cache
-      }
-
       return GetValue<string>(column);
     }
 
@@ -363,7 +358,7 @@ namespace NDbfReaderEx
 
       var column = (Column)FindColumnByName(columnName);
 
-      return column.LoadValueAsObject(_buffer);
+      return GetValue(column);
     }
 
     /// <summary>
@@ -387,12 +382,32 @@ namespace NDbfReaderEx
 
       var columnBase = (Column)column;
 
-      return columnBase.LoadValueAsObject(_buffer);
+      byte[]    fieldCache = null;
+      MemoCache memoItem   = null;
+
+      if (columnBase.dbfType == NativeColumnType.Memo)
+      { // for detached mode and performance: return cached memo value if available or read it and store to cache
+        Debug.Assert(memoCache != null);
+
+        memoItem = Array.Find(memoCache, (c => c.column == column));
+
+        Debug.Assert(memoItem != null);
+
+        fieldCache = memoItem.data;        
+      }
+
+      object ret = columnBase.LoadValueAsObject(_buffer, ref fieldCache);
+
+      if (memoItem != null)
+      {
+        memoItem.data = fieldCache;
+      }
+
+      return ret;
     }
 
     /// <summary>
     /// Gets a value of the specified column of the current row.
-    /// Warning: cached memo field value used only(!) at GetString() call!
     /// </summary>
     /// <typeparam name="T">The column type.</typeparam>
     /// <param name="columnName">The column name.</param>
@@ -414,18 +429,13 @@ namespace NDbfReaderEx
         throw new ArgumentNullException("columnName");
       }
 
-      var typedColumn = FindColumnByName(columnName) as Column<T>;
-      if (typedColumn == null)
-      {
-        throw new ArgumentOutOfRangeException("columnName", "The column's type does not match the method's return type.");
-      }
-
-      return typedColumn.LoadValue(_buffer);
+      IColumn column = FindColumnByName(columnName);
+      
+      return GetValue<T>(column);
     }
 
     /// <summary>
     /// Gets a value of the specified column of the current row.
-    /// Warning: cached memo field value used only(!) at GetString() call!
     /// </summary>
     /// <typeparam name="T">The column type.</typeparam>
     /// <param name="column">The column.</param>
@@ -451,36 +461,41 @@ namespace NDbfReaderEx
 
       var typedColumn = (Column<T>)column;
 
-      return typedColumn.LoadValue(_buffer);
+      byte[]    fieldCache = null;
+      MemoCache memoItem   = null;
+
+      if (typedColumn.dbfType == NativeColumnType.Memo)
+      { // for detached mode and performance: return cached memo value if available or read it and store to cache
+        Debug.Assert(memoCache != null);
+
+        memoItem = Array.Find(memoCache, (c => c.column == typedColumn));
+
+        Debug.Assert(memoItem != null);
+
+        fieldCache = memoItem.data;        
+      }
+
+      T ret = typedColumn.LoadValue(_buffer, ref fieldCache);
+
+      if (memoItem != null)
+      {
+        memoItem.data = fieldCache;
+      }
+
+      return ret;
     }
     #endregion
 
     #region Memo special ------------------------------------------------------------------------------------
 
-    private string GetMemoText(IColumn column)  
-    { // for detached mode and performance: return cached memo value if available or read it and store to cache
-      Debug.Assert(memoCache != null);
-
-      var memo = Array.Find(memoCache, (c => c.column == column));
-
-      Debug.Assert(memo != null);
-
-      if (memo.text == null)
-      {
-        memo.text = GetValue<string>(column);                                           // Read from separated memo stream
-      }
-
-      return memo.text;
-    }
-
     private class MemoCache
     {
       public IColumn column;
-      public string  text;                                                                                                              
+      public byte[]  data;                                                                                                              
       public bool    modified;
     }
 
-    private MemoCache[] memoCache = null;
+    private MemoCache[] memoCache  = null;
 
     #endregion
 

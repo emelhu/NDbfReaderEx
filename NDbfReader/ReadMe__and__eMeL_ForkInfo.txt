@@ -6,6 +6,10 @@ Original code by Stanislav Fajfr ( eXavera )
 
 ***************************************************************************************************
 
+I had forked original code because I found some fatal error when my code read dBase3/Clipper tables.
+
+...and a want a lot of extra too :)
+
 New NDbfReaderEx changed to positioning inside dbf file, you can reread previously readed records too and
 can read any record by count in datafile. You can read records direct or enumerate it.
 Others can insert/modify dbf records too while you read it by NDbfReaderEx; you can refresh header information 

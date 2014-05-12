@@ -169,7 +169,7 @@ namespace NDbfReaderEx
     /// </summary>
     /// <param name="rowBuffer">The byte array from which a value should be loaded.</param>
     /// <returns>A column value.</returns>
-    public abstract object LoadValueAsObject(byte[] rowBuffer);
+    public abstract object LoadValueAsObject(byte[] rowBuffer, ref byte[] cachedColumnData);
 
     /// <summary>
     /// Is a value from the specified rowBuffer null.
@@ -220,7 +220,7 @@ namespace NDbfReaderEx
     /// <returns>A column value.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="rowBuffer"/> is <c>null</c> or <paramref name="encoding"/> is <c>null</c>.</exception>
     /// <exception cref="ArgumentException"><paramref name="rowBuffer"/> is smaller then the size of the column.</exception>
-    public T LoadValue(byte[] rowBuffer)
+    public T LoadValue(byte[] rowBuffer, ref byte[] cachedColumnData)
     {
       if (rowBuffer == null)
       {
@@ -232,7 +232,7 @@ namespace NDbfReaderEx
         throw ExceptionFactory.CreateArgumentException("rowBuffer", "The rowBuffer must have enought bytes.");
       }
 
-      return ValueFromRowBuffer(rowBuffer);
+      return ValueFromRowBuffer(rowBuffer, ref cachedColumnData);
     }
 
     /// <summary>
@@ -240,9 +240,9 @@ namespace NDbfReaderEx
     /// </summary>
     /// <param name="rowBuffer">The byte array from which a value should be loaded.</param>
     /// <returns>A column value.</returns>
-    public sealed override object LoadValueAsObject(byte[] rowBuffer)
+    public sealed override object LoadValueAsObject(byte[] rowBuffer, ref byte[] cachedColumnData)
     {
-      return LoadValue(rowBuffer);
+      return LoadValue(rowBuffer, ref cachedColumnData);
     }
 
     /// <summary>
@@ -250,7 +250,7 @@ namespace NDbfReaderEx
     /// </summary>
     /// <param name="rowBuffer">The byte array from which a value should be loaded. The rowBuffer length is always at least equal to the column size.</param>
     /// <returns>A column value.</returns>
-    protected abstract T ValueFromRowBuffer(byte[] rowBuffer);
+    protected abstract T ValueFromRowBuffer(byte[] rowBuffer, ref byte[] cachedColumnData);
 
     #endregion
   }

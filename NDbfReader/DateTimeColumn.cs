@@ -28,8 +28,8 @@ namespace NDbfReaderEx
     /// <param name="buffer">The byte array from which a value should be loaded. The buffer length is always at least equal to the column size.</param>
     /// <param name="encoding">The encoding that should be used when loading a value. The encoding is never <c>null</c>.</param>
     /// <returns>A column value.</returns>
-    protected override DateTime ValueFromRowBuffer(byte[] rowBuffer)
-    {
+    protected override DateTime ValueFromRowBuffer(byte[] rowBuffer, ref byte[] cachedColumnData)
+    { // This didn't use cachedColumnData, it for MemoColumn only
       if (IsNull(rowBuffer))
       {
         return DateTime.MinValue;
@@ -44,8 +44,8 @@ namespace NDbfReaderEx
     public override bool IsNull(byte[] rowBuffer)
     {
       for (int i = 0; i < size_; i++)
-			{
-	      byte b = rowBuffer[offset_ + 1 + i];
+      {
+        byte b = rowBuffer[offset_ + 1 + i];
 
         if (b == 0x00)
         { // not standard, but maybe a C/C++ EndOfString character used

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
@@ -33,6 +34,21 @@ namespace NDbfReaderEx
       this._columns = columns;
       this._buffer  = buffer;
       this._recNo   = recNo;
+
+      //
+
+      var memoColumns = Array.FindAll(_columns, (c => c.dbfType == NativeColumnType.Memo));
+
+      if (memoColumns.Length > 0)
+      {
+        memoCache = new MemoCache[memoColumns.Length]; 
+
+        for (int i = 0; i < memoColumns.Length; i++)
+        {
+          memoCache[i] = new MemoCache();
+          memoCache[i].column = memoColumns[i];                                     // Identifier of memo field
+        }
+      }     
     }
 
     #region Record status/info ----------------------------------------------------------------------------
@@ -73,6 +89,14 @@ namespace NDbfReaderEx
         return _recNo; 
       } 
     }
+
+    public ReadOnlyCollection<IColumn> columns
+    {
+      get
+      {
+        return new ReadOnlyCollection<IColumn>(_columns);
+      }
+    }
     #endregion
 
     #region field read --------------------------------------------------------------------------------------
@@ -96,7 +120,9 @@ namespace NDbfReaderEx
     /// <exception cref="ObjectDisposedException">The parent table is disposed.</exception>
     public virtual string GetString(string columnName)
     {
-      return GetValue<string>(columnName);
+      IColumn column = FindColumnByName(columnName);
+      
+      return GetString(column);
     }
 
     /// <summary>
@@ -119,6 +145,11 @@ namespace NDbfReaderEx
     public virtual string GetString(IColumn column)
     {
       CheckColumn(column);
+
+      if (column.dbfType == NativeColumnType.Memo)
+      {
+        return GetMemoText(column);                                  // for detached mode and performance: return cached memo value if available or read it and store to cache
+      }
 
       return GetValue<string>(column);
     }
@@ -361,6 +392,7 @@ namespace NDbfReaderEx
 
     /// <summary>
     /// Gets a value of the specified column of the current row.
+    /// Warning: cached memo field value used only(!) at GetString() call!
     /// </summary>
     /// <typeparam name="T">The column type.</typeparam>
     /// <param name="columnName">The column name.</param>
@@ -393,6 +425,7 @@ namespace NDbfReaderEx
 
     /// <summary>
     /// Gets a value of the specified column of the current row.
+    /// Warning: cached memo field value used only(!) at GetString() call!
     /// </summary>
     /// <typeparam name="T">The column type.</typeparam>
     /// <param name="column">The column.</param>
@@ -420,6 +453,35 @@ namespace NDbfReaderEx
 
       return typedColumn.LoadValue(_buffer);
     }
+    #endregion
+
+    #region Memo special ------------------------------------------------------------------------------------
+
+    private string GetMemoText(IColumn column)  
+    { // for detached mode and performance: return cached memo value if available or read it and store to cache
+      Debug.Assert(memoCache != null);
+
+      var memo = Array.Find(memoCache, (c => c.column == column));
+
+      Debug.Assert(memo != null);
+
+      if (memo.text == null)
+      {
+        memo.text = GetValue<string>(column);                                           // Read from separated memo stream
+      }
+
+      return memo.text;
+    }
+
+    private class MemoCache
+    {
+      public IColumn column;
+      public string  text;                                                                                                              
+      public bool    modified;
+    }
+
+    private MemoCache[] memoCache = null;
+
     #endregion
 
     #region field update ------------------------------------------------------------------------------
@@ -471,6 +533,11 @@ namespace NDbfReaderEx
 
     public IColumn FindColumnByName(string columnName)
     {
+      if (String.IsNullOrWhiteSpace(columnName))
+      {
+        throw new ArgumentNullException("columnName");
+      }
+
       var column = _columns.FirstOrDefault(c => c.name == columnName);
 
       if (column == null)

@@ -324,6 +324,50 @@ namespace NDbfReaderEx_Test
       More();
 
       DisplayRows(dbfFile, true);
+      More();
+
+      List<DbfRow> rows = new List<DbfRow>();
+
+      using (DbfTable test = DbfTable.Open(dbfFile, Encoding.GetEncoding(437)))
+      {
+        foreach (DbfRow row in test)
+        { // Store for detached mode
+          rows.Add(row);
+        }
+
+        DisplayTest4DFields(rows);
+        More();       
+      }
+
+      Console.WriteLine("Detached rows:");
+
+      DisplayTest4DFields(rows);
+    }
+
+    static void DisplayTest4DFields(DbfTable table)
+    {
+      foreach (DbfRow row in table)
+      {
+        DisplayTest4DField(row);
+      }
+    }
+
+    static void DisplayTest4DFields(List<DbfRow> rows)
+    {
+      foreach (DbfRow row in rows)
+      {
+        DisplayTest4DField(row);
+      }
+    }
+
+    static void DisplayTest4DField(DbfRow row)
+    {
+      Console.WriteLine();
+      Console.WriteLine("AAA: " + row.GetString("AAA"));
+      Console.WriteLine("BBB: " + row.GetDecimal("BBB"));
+      Console.WriteLine("CCC: " + row.GetDate("CCC")); 
+      Console.WriteLine("DDD: " + row.GetBoolean("DDD")); 
+      Console.WriteLine("EEE: " + row.GetString("EEE"));
     }
     #endregion
   }

@@ -27,9 +27,9 @@ NDbfReaderEx records can work with detached mode too.
 If you have already readed necessary rows of dbf file you can close DbfTable, and you can use theese stored records after it.
  
 You have got a dBase/Clipper syntax/operating mode like extension for DbfTable, called DbfTableReader.
- 
+
+``` 
 ...and: A lot of things complettely redesigned and reimplemented for extendable code and simpler and flexible usage since original NDbfReader
- 
 ```
 
 ## Example
@@ -105,4 +105,4 @@ Sorry, English is not my native language, please send criticism and/or correctio
 
 You can contact to me directly:  emel@emel.hu 
 
-Laszlo Moravecz / [www.emel.hu](www.emel.hu)
+Laszlo Moravecz / [www.emel.hu](http://www.emel.hu)

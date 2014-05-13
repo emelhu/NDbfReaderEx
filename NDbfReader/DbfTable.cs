@@ -21,6 +21,9 @@ using System.Text;
 // http://ulisse.elettra.trieste.it/services/doc/dbase/DBFstruct.htm    -- DBF, a few words from DBT
 // http://www.clicketyclick.dk/databases/xbase/format/index.html        -- DBT
 
+// http://tmpvar.com/markdown.html   for prewiew of *.MD files :)
+// https://help.github.com/articles/github-flavored-markdown     -- help
+
 namespace NDbfReaderEx
 {
   /// <summary>

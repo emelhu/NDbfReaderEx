@@ -6,25 +6,6 @@ Original code by Stanislav Fajfr ( eXavera )
 
 ***************************************************************************************************
 
-I had forked original code because I found some fatal error when my code read dBase3/Clipper tables.
-
-...and a want a lot of extra too :)
-
-New NDbfReaderEx changed to positioning inside dbf file, you can reread previously readed records too and
-can read any record by count in datafile. You can read records direct or enumerate it.
-Others can insert/modify dbf records too while you read it by NDbfReaderEx; you can refresh header information 
-(record count and last update date) because other program maybe wrote it after you open the dbf file.
-[Other program can't change column info or shrink datafile by 'zip/pack' command while you read it. 
- It's dBase/Clipper method - they need exclusive file open.]
-NDbfReaderEx records can work with detached mode too. 
-If you have readed necessary rows of dbf file you can close DbfTable, but you can use theese records after it.
-
-You have got a dBase/Clipper syntax/operating mode like extension for DbfTable, called DbfTableReader.
-
-[A lot of things complettely redesigned and reimplemented for extendable code and simpler and flexible usage]
-
-***************************************************************************************************
-
 If you have question or comment send me it.
 
 English is not my native language, please send criticism and/or correction.

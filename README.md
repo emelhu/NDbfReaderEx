@@ -28,6 +28,21 @@ You have got a dBase/Clipper syntax/operating mode like extension for DbfTable, 
 ```
 ## Example
 
+```csharp
+using (DbfTable table = DbfTable.Open(filename, Encoding.GetEncoding(437)))
+{
+  foreach (DbfRow row in table)
+  {
+    Console.WriteLine();
+    Console.WriteLine("AAA: " + row.GetString("AAA"));
+    Console.WriteLine("BBB: " + row.GetDecimal("BBB"));
+    Console.WriteLine("CCC: " + row.GetDate("CCC")); 
+    Console.WriteLine("DDD: " + row.GetBoolean("DDD")); 
+    Console.WriteLine("EEE: " + row.GetString("EEE"));
+  }
+}
+```
+
 
 ```
 A dbf table can be readed by reader as original eXavera/NDbfReader:

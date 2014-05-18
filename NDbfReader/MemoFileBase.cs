@@ -4,6 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
+// http://www.clicketyclick.dk/databases/xbase/format/dbt.html
+// http://www.clicketyclick.dk/databases/xbase/format/fpt.html
+
 namespace NDbfReaderEx
 {
   public abstract class MemoFileBase : IMemoFile, IDisposable
@@ -48,7 +51,7 @@ namespace NDbfReaderEx
       if (! disposed)
       {
         disposed = true;
-        this.stream.Dispose();        
+        this.stream.Dispose();   
       }
     }
 

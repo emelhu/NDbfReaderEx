@@ -11,7 +11,7 @@ namespace NDbfReaderEx
 
     # region variables --------------------------------------------------------------------------------------
 
-    private const int   blockSize       = 512;
+    public  const int   blockSize       = 512;
     private const byte  terminator      = 0x1A;
     private const uint  defaultBlobSize = 64 * 1024;                          // 64 KByte - default blob max. size (like dBase/Clipper)
 

@@ -11,17 +11,24 @@ namespace NDbfReaderEx
   /// Represent one row of DBF file. It is readable in detached mode too.
   /// Content of record is modifiable, but you have to write back to DbfTable, when complet.
   /// </summary>
+  [Serializable]
   public class DbfRow
   {
     internal readonly IColumn[] _columns;
     internal readonly byte[]    _buffer;
 
-    internal          int       _recNo;                                                                 // internal: DbfReaded/InsertRow() can modify it
+    [NonSerialized()]
+    internal          int       _recNo;                                                                 // internal: DbfTable.InsertRow() can modify it
 
-    internal          bool      _modified = false;                                                      // internal: DbfRead/UpdateRow() can clear it
+    internal          bool      _modified = false;                                                      // internal: DbfTable.UpdateRow() can clear it
 
-    private const byte DELETED_ROW_FLAG  = (byte)'*';
-    private const byte ACCEPTED_ROW_FLAG = 0x20;                                                        // blank - normal/live data (undeleted)                                        
+    [NonSerialized()]
+    private           Guid      _dbfTableClassID;                                                       
+
+    private  const    byte      DELETED_ROW_FLAG  = (byte)'*';                                          // standard value for signals deleted state
+    private  const    byte      ACCEPTED_ROW_FLAG = 0x20;                                               // blank - normal/live data (undeleted)                                        
+
+    internal const    int       forInsert_recNoValue = int.MinValue;                                    // value of recNo if this row wait for insert to a DbfTable
 
     /// <summary>
     /// Contructor of row.
@@ -29,11 +36,13 @@ namespace NDbfReaderEx
     /// <param name="recNo">No. of row in dbf file (first is 0)</param>
     /// <param name="buffer">bytes of entire record content</param>
     /// <param name="columns">DbfTable header information for detached mode</param>
-    protected internal DbfRow(int recNo, byte[] buffer, IColumn[] columns)
+    protected internal DbfRow(int recNo, byte[] buffer, IColumn[] columns, Guid dbfTableClassID)
     {
       this._columns = columns;
       this._buffer  = buffer;
       this._recNo   = recNo;
+
+      this._dbfTableClassID = dbfTableClassID;
 
       //
 
@@ -72,11 +81,21 @@ namespace NDbfReaderEx
       }
     }
 
-
+    /// <summary>
+    /// Is modified one ore more field of row include memo fields' content too
+    /// </summary>
     public bool modified
     {
       get
       {
+        foreach (var item in memoCache)
+        {
+          if (item.modified)
+          {
+            return true;
+          }
+        }
+
         return _modified;                                         
       }
     }
@@ -97,6 +116,15 @@ namespace NDbfReaderEx
         return new ReadOnlyCollection<IColumn>(_columns);
       }
     }
+
+    public Guid dbfTableClassID 
+    { 
+      get 
+      {
+        return _dbfTableClassID;
+      }
+    }
+
     #endregion
 
     #region field read --------------------------------------------------------------------------------------
@@ -488,6 +516,20 @@ namespace NDbfReaderEx
 
     #region Memo special ------------------------------------------------------------------------------------
 
+    /// <summary>
+    /// Store memos' content to cache for detached mode.
+    /// </summary>
+    public void CacheMemos()
+    { // Only read it and this event automatically store memo stream's content to memory cache
+      for (int i = 0; i < _columns.Length; i++)
+      { // faster then foreach or linq 
+        if (_columns[i].dbfType == NativeColumnType.Memo)
+        {
+          var memo = GetString(_columns[i]);
+        }
+      }
+    }
+
     private class MemoCache
     {
       public IColumn column;
@@ -553,7 +595,7 @@ namespace NDbfReaderEx
         throw new ArgumentNullException("columnName");
       }
 
-      var column = _columns.FirstOrDefault(c => c.name == columnName);
+      var column = _columns.FirstOrDefault(c => (String.Compare(c.name, columnName, true) == 0));      // case insensitive
 
       if (column == null)
       {
@@ -602,5 +644,101 @@ namespace NDbfReaderEx
       return ret;
     }
     #endregion
+
+    internal void AtachedToAnotherTable(DbfTable dbfTable, int recNo)
+    {
+      this._dbfTableClassID = (dbfTable == null) ? Guid.Empty : dbfTable.dbfTableClassID;                                    
+      this._recNo           = recNo;
+
+      //
+
+      if (dbfTable != null)
+      {  
+        if (! IsIdenticalColumnsDefinition(this._columns, dbfTable._columns))
+        {
+          throw ExceptionFactory.CreateArgumentException("dbfTable", "DbfRow.AtachedToAnotherTable/this.columns and dbfTable.columns aren't identical !");
+        }
+      }
+
+      //
+
+      foreach (var item in memoCache)
+      {
+        item.modified = ((item.data != null) && (item.data.Length > 0));
+
+        (item.column as Column).SetNull(_buffer);
+      }
+    }
+
+
+    public static bool IsIdenticalColumnsDefinition(ICollection<IColumn> columns1, ICollection<IColumn> columns2)
+    {
+      if (columns1 == null)
+      {
+        throw ExceptionFactory.CreateArgumentException("columns1", "Null parameter value not allowed!");
+      }
+
+      if (columns2 == null)
+      {
+        throw ExceptionFactory.CreateArgumentException("columns2", "Null parameter value not allowed!");
+      }
+
+
+      List<Column> cols1 = new List<Column>(); 
+      List<Column> cols2 = new List<Column>();
+
+      foreach (var item in columns1)
+      {
+        cols1.Add(item as Column);
+      }
+
+      foreach (var item in columns2)
+      {
+        cols2.Add(item as Column);
+      }
+
+      if (cols1.Count != cols2.Count)
+      {
+        return false;
+      }
+
+      cols1.Sort((col1, col2) => String.Compare(col1.name, col2.name, true));           // Ignore case
+      cols2.Sort((col1, col2) => String.Compare(col1.name, col2.name, true));           // Ignore case
+
+      for (int i = 0; (i < cols1.Count); i++)
+      {
+        if (String.Compare(cols1[i].name, cols2[i].name, true) != 0)                    // Ignore case 
+        {
+          return false;
+        }
+
+        if (cols1[i].dbfType != cols2[i].dbfType)
+        {
+          return false;
+        }
+
+        if (cols1[i].size != cols2[i].size)
+        {
+          return false;
+        }
+
+        if (cols1[i].dec != cols2[i].dec)
+        {
+          return false;
+        }
+
+        if (cols1[i].type != cols2[i].type)
+        {
+          return false;
+        }
+
+        if (cols1[i].offset != cols2[i].offset)
+        {
+          return false;
+        }
+      }
+
+      return true;
+    }
   }
 }

@@ -282,9 +282,12 @@ namespace NDbfReaderEx_Test
 
     private static void CreateTableAndWriteRows()
     {
-      string filename = "createdTest1.dbf";
+      string fileName1 = "createdTest1.dbf";
+      string fileName2 = "createdTest2.dbf";
 
-      File.Delete(filename);                                                  // DbfTable.Create can't overwrite exists file - it's a precautionary measure.
+      File.Delete(fileName1);                                                // DbfTable.Create can't overwrite exists file - it's a precautionary measure.
+      File.Delete(fileName2);                                                // according to plan --''--
+      File.Delete("createdTest2.dbt");                                       // according to plan: CreateHeader_Memo can't overwrites existing DBT file. 
 
       var columns = new List<ColumnDefinitionForCreateTable>();
 
@@ -293,7 +296,14 @@ namespace NDbfReaderEx_Test
       columns.Add(ColumnDefinitionForCreateTable.DateField("CCC"));
       columns.Add(ColumnDefinitionForCreateTable.LogicalField("DDD"));
 
-      using (var dbfTable = DbfTable.Create(filename, columns, DbfTable.CodepageCodes.CP_852))
+      using (var dbfTable = DbfTable.Create(fileName1, columns, DbfTable.CodepageCodes.CP_852))
+      {
+
+      }
+
+      columns.Add(ColumnDefinitionForCreateTable.MemoField("EEE"));
+
+      using (var dbfTable = DbfTable.Create(fileName2, columns, Encoding.GetEncoding(852), DbfTableType.Clipper))
       {
 
       }

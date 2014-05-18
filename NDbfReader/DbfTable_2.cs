@@ -355,10 +355,19 @@ namespace NDbfReaderEx
         throw new IOException(String.Format("DBF file is corrupted! [Haven't enought bytes for {0}. row!]", recNo));
       }
 
-      return new DbfRow(recNo, buffer, _columns);
+      return new DbfRow(recNo, buffer, _columns, dbfTableClassID);
     }
 
-    public bool UpdateRow(DbfRow row, bool throwException = true)
+    /// <summary>
+    /// Update a dbf record by a DbfRow.
+    /// 
+    /// 
+    /// </summary>
+    /// <param name="row">Recno in DbfRow points record to update.</param>
+    /// <param name="throwException"></param>
+    /// <param name="updateRecNo">If DbfRow is a foreign/orphan row you must signal it explicit with updateRecNo value.</param>
+    /// <returns>A boolean value or exception for success & DbfRow atached to this table if it was a foreign/orphan row.</returns>
+    public bool UpdateRow(DbfRow row, bool throwException = true, int updateRecNo = int.MaxValue)
     {
       ThrowIfDisposed();
 
@@ -367,12 +376,42 @@ namespace NDbfReaderEx
         throw ExceptionFactory.CreateArgumentException("UpdateRow(row)", "Null parameter invalid!");
       }
 
+      if (row.dbfTableClassID != this.dbfTableClassID)
+      {
+        if (updateRecNo != int.MaxValue)
+        { // explicit signal for update a foreign/orphan row into this dbf file 
+          if ((updateRecNo < 0) || (updateRecNo >= recCount))
+          {
+            if (throwException)
+            {
+              throw new Exception(String.Format("DbfTable.UpdateRow(updateRecNo:{0}): invalid record number! [count of records: {1}]", updateRecNo, recCount));
+            }
+            else
+            {
+              return false;
+            }
+          }
+
+          row.AtachedToAnotherTable(this, updateRecNo);
+        }
+        else if (throwException)
+        {
+          throw new Exception(String.Format("DbfTable.UpdateRow(): DbfRow parameter is a foreign/orphan value!"));
+        }
+        else
+        {
+          return false;
+        }
+      }
+
+      
+
 
       if ((row.recNo < 0) || (row.recNo >= recCount))
       {
         if (throwException)
         {
-          throw new Exception(String.Format("DbfTable.GetRow({0}): invalid record number! [count of records: {1}]", row.recNo, recCount));
+          throw new Exception(String.Format("DbfTable.UpdateRow({0}): invalid record number! [count of records: {1}]", row.recNo, recCount));
         }
         else
         {
@@ -403,13 +442,37 @@ namespace NDbfReaderEx
       return true;       
     }
 
-    public bool InsertRow(DbfRow row, bool throwException = true)
+    /// <summary>
+    /// Insert a row and return success.
+    /// If error happends return false (or throw an exception) 
+    /// Set row._recNo to record position of new record.
+    /// </summary>
+    /// <param name="row"></param>
+    /// <param name="throwException"></param>
+    /// <returns></returns>
+    public bool InsertRow(DbfRow row, bool throwException = true, bool foreignRowEnabled = false)
     {
       ThrowIfDisposed();
 
       if (row == null)
       {
         throw ExceptionFactory.CreateArgumentException("InsertRow(row)", "Null parameter invalid!");
+      }
+
+      if (row.dbfTableClassID != this.dbfTableClassID)
+      {
+        if (foreignRowEnabled)
+        { // explicit signal for insert a foreign/orphan row into this dbf file 
+          row.AtachedToAnotherTable(this, DbfRow.forInsert_recNoValue);
+        }
+        else if (throwException)
+        {
+          throw new Exception(String.Format("DbfTable.UpdateRow(): DbfRow parameter is a foreign/orphan value!"));
+        }
+        else
+        {
+          return false;
+        }
       }
 
       row._recNo    = 99999999;         // TODO: !!!!!!!!!!!!!!!!!!!!!!
@@ -425,7 +488,19 @@ namespace NDbfReaderEx
         throw ExceptionFactory.CreateArgumentException("WriteRow(row)", "Null parameter invalid!");
       }
 
-      if (row.recNo == int.MinValue)
+      if (row.dbfTableClassID != this.dbfTableClassID)
+      {
+        if (throwException)
+        {
+          throw new Exception(String.Format("DbfTable.WriteRow(): DbfRow parameter is a foreign/orphan value!"));
+        }
+        else
+        {
+          return false;
+        }
+      }
+
+      if (row.recNo == DbfRow.forInsert_recNoValue)
       {
         return InsertRow(row, throwException);
       }
@@ -433,6 +508,11 @@ namespace NDbfReaderEx
       {
         return UpdateRow(row, throwException);
       }
+    }
+
+    public void DetachRow(DbfRow row, bool throwException = true)
+    {
+      row.AtachedToAnotherTable(null, DbfRow.forInsert_recNoValue);
     }
 
     #endregion
@@ -443,7 +523,7 @@ namespace NDbfReaderEx
     #region CreateFile --------------------------------------------------------------------------------------
 
     private static DbfTable CreateHeader_DBF(Stream stream, 
-                                         IEnumerable<ColumnDefinitionForCreateTable> columns, 
+                                         IEnumerable<IColumnBase> columns,                                  // ColumnDefinitionForCreateTable --> IColumnBase
                                          DbfTableType tableType     = DbfTableType.Undefined,
                                          CodepageCodes codepageCode = CodepageCodes.OEM,
                                          Encoding encoding = null)
@@ -459,8 +539,15 @@ namespace NDbfReaderEx
           throw ExceptionFactory.CreateArgumentException("tableType", "Invalid table type for CreateHeader_DBF() !");
       }
 
-      Debug.Assert(! ((codepageCode == CodepageCodes.OEM) && (encoding != null)));
-      Debug.Assert(! ((codepageCode != CodepageCodes.OEM) && (encoding == null)));
+      if (encoding == null)
+      {
+        Debug.Assert(codepageCode != CodepageCodes.OEM);
+      }
+      else
+      {
+        Debug.Assert(codepageCode == CodepageCodes.OEM);
+      }
+      
 
       DbfTable ret = new DbfTable(stream, encoding);
 
@@ -469,7 +556,7 @@ namespace NDbfReaderEx
       return ret;
     }
 
-    private static void CreateHeader_dBase3(Stream stream, IEnumerable<ColumnDefinitionForCreateTable> columns, 
+    private static void CreateHeader_dBase3(Stream stream, IEnumerable<IColumnBase> columns, 
                                             DbfTableType tableType     = DbfTableType.Undefined,
                                             CodepageCodes codepageCode = CodepageCodes.OEM)
     {
@@ -495,7 +582,7 @@ namespace NDbfReaderEx
 
       //
 
-      var columnDefs = new List<ColumnDefinitionForCreateTable>(columns);
+      var columnDefs = new List<IColumnBase>(columns);
 
       if (columnDefs.Count < 1)
       {
@@ -505,7 +592,7 @@ namespace NDbfReaderEx
       DbfFileTypes dbfFileType = DbfFileTypes.DBase3;
       short        lengthOfDataRecords = 1;                                         // 1 for 'delete flag'
 
-      foreach (ColumnDefinitionForCreateTable col in columnDefs)
+      foreach (IColumnBase col in columnDefs)
       {
         if (col.dbfType == NativeColumnType.Memo)
         {
@@ -548,7 +635,7 @@ namespace NDbfReaderEx
       writer.Write((byte)codepageCode);                                         // 29. byte
       writer.Write(new byte[2]);                                                // reserved
 
-      foreach (ColumnDefinitionForCreateTable col in columnDefs)
+      foreach (IColumnBase col in columnDefs)
       {
         byte[] name = Encoding.ASCII.GetBytes(col.name);
         Array.Resize<byte>(ref name, 11);
@@ -575,20 +662,173 @@ namespace NDbfReaderEx
       
       writer.Write(endOfFileTerminator);
     }
+    
+
+
+    private static Stream CreateHeader_Memo(string dbfFileName, DbfTableType tableType = DbfTableType.Undefined)
+    {
+      switch (tableType)
+      {
+        case DbfTableType.Clipper:
+        case DbfTableType.DBase3:
+        case DbfTableType.Undefined:         
+          return CreateHeader_MemoDBT(dbfFileName);
+
+        default:
+          throw ExceptionFactory.CreateArgumentException("tableType", "Invalid table type for CreateHeader_Memo() !");
+      }
+    }
+
+    private static Stream CreateHeader_MemoDBT(string dbfFileName)
+    {
+      string dbtFileName = Path.GetFileNameWithoutExtension(dbfFileName) + ".dbt"; 
+      
+      Stream stream = new FileStream(dbtFileName, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
+      
+      {
+        //stream.SetLength(512);                                                // Header block / If the stream is expanded, the contents of the stream between the old and the new length are not defined.
+        byte[] headerBlock = new byte[MemoFileDBT.blockSize];                   // Header block is filled with zero  
+
+        stream.Write(headerBlock, 0, headerBlock.Length);
+      }
+
+      stream.Position = 0;
+
+      BinaryWriter writer = new BinaryWriter(stream);                           // don't use 'using (BinaryWriter writer...' because 'using' dispose 'stream' too!
+
+      writer.Write((Int32)1);                                                   // "Number of next available block for appending data"  http://www.clicketyclick.dk/databases/xbase/format/dbt.html#DBT_STRUCT
+      writer.BaseStream.Position = 16;                                          // position of "Version no."                            --''--
+      writer.Write((byte)0x03);                                                 // "Version no.  (03h)"                                 --''--
+
+      return stream;
+    }
+    
     #endregion
 
     #region MemoFile ----------------------------------------------------------------------------------------
 
     public void JoinMemoStream(Stream fileStream, DbfTableType tableType)
     {
-      if (this.tableType == DbfTableType.Undefined)
+      StoreTableType(tableType);
+
+      //
+
+      //if (this.tableType == DbfTableType.Undefined)
+      //{ // Scan memo stream for detect type...
+      // ... there aren't any signature in DBT or FPT file we can't detect type of it.
+      //}
+
+      if ((this.tableType == DbfTableType.Undefined) && isDbtMemoFileForDbf())
       {
-        this.tableType = tableType; 
+        this._memoFile = new MemoFileDBT(fileStream, this.encoding);
       }
-      else if (this.tableType != tableType)
+      else
       {
-        throw ExceptionFactory.CreateArgumentException("tableType", "Different dbf table type parameter value!");
+        switch (this.tableType)
+        {
+          case DbfTableType.Clipper:
+          case DbfTableType.DBase3:
+            this._memoFile = new MemoFileDBT(fileStream, this.encoding);
+            break;
+          case DbfTableType.Undefined:
+            throw ExceptionFactory.CreateArgumentException("tableType", "Don't be known the format of the memory stream!");
+          default:
+            throw new NotImplementedException();
+        }
       }
+
+      //
+
+      var memoFields = from col in _columns
+                       where col.dbfType == NativeColumnType.Memo
+                       select col;
+
+      foreach (var colDef in memoFields)
+      {
+        MemoColumn memoColumn = colDef as MemoColumn;
+
+        Debug.Assert(memoColumn != null);
+
+        memoColumn.memoFile = this._memoFile;
+      }
+    }
+
+    private void JoinMemoFile()
+    {
+      this.fileNameMemo = null;
+
+      string fileName = Path.GetFileNameWithoutExtension(this.fileNameDBF);
+
+      switch (this.tableType)
+      {
+        case DbfTableType.Clipper:                                                         
+        case DbfTableType.DBase3:
+          fileName += ".dbt";
+          break;
+        
+        case DbfTableType.Undefined:
+          if (isDbtMemoFileForDbf())
+          {
+            fileName += ".dbt";
+          }
+          else if (File.Exists(fileName + ".dbt"))
+          {
+            fileName += ".dbt";
+          }
+          else
+          {
+            fileName = null;                      
+          }
+          break;
+      }
+
+
+      if (String.IsNullOrWhiteSpace(fileName))
+      {
+        Trace.TraceWarning("Don't be known the format or name of the memo/blob file for '{0}' DBF file!", this.fileNameDBF);
+      }
+      else if (File.Exists(fileName))
+      {
+        this.fileNameMemo = fileName;
+
+        FileAccess access;
+        FileShare share;
+
+        switch (openMode)
+        {
+          case DbfTableOpenMode.Exclusive:
+            access = FileAccess.ReadWrite;
+            share = FileShare.None;
+            break;
+          case DbfTableOpenMode.ReadWrite:
+            access = FileAccess.ReadWrite;
+            share = FileShare.ReadWrite;
+            break;
+          case DbfTableOpenMode.Read:
+            access = FileAccess.Read;
+            share = FileShare.ReadWrite;
+            break;
+          default:
+            throw ExceptionFactory.CreateArgumentException("JoinMemoFile/Open(Openmode)", "Invalid open mode parameter!");
+        }
+
+        var stream = new FileStream(fileName, FileMode.Open, access, share);
+
+        JoinMemoStream(stream, this.tableType);
+      }
+      else
+      {
+        Trace.TraceWarning("Don't found the '{0}' memo/blob file for '{1}' DBF file!", fileName, this.fileNameDBF);
+      }
+    }
+
+    #endregion
+
+    #region IndexFile ----------------------------------------------------------------------------------------
+
+    public void JoinIndexStream(Stream fileStream, bool? skipDeleted = null, DbfTableType tableType = DbfTableType.Undefined)
+    {
+      StoreTableType(tableType);
 
       //
 
@@ -627,15 +867,52 @@ namespace NDbfReaderEx
       }
     }
 
-    private void JoinMemoFile()
+    private void JoinIndexFile(string indexFileID, char separatorChar, bool? skipDeleted = null, DbfTableType tableType = DbfTableType.Undefined)
     {
+      StoreTableType(tableType);
+
+      string fileName = Path.GetFileNameWithoutExtension(this.fileNameDBF);
+
+      bool illegal = Array.Exists(Path.GetInvalidFileNameChars(), c => c == separatorChar);
+
+      if (! illegal)
+      {
+        fileName += separatorChar;
+      }
+
+      string ext = GetIndexExtension(tableType);
+
+      if (ext == null)
+      {
+
+      }
+
+      if (ext == null)
+      {
+        throw ExceptionFactory.CreateArgumentException("tableType", "Don't be known the format of the index file for filename extension!");
+      }
+
+      // 
+
+      JoinIndexFile(fileName, skipDeleted, tableType);
+    }
+
+    private void JoinIndexFile(string indexFileName, bool? skipDeleted = null, DbfTableType tableType = DbfTableType.Undefined)
+    {
+      StoreTableType(tableType);
+
+
       string fileName = Path.GetFileNameWithoutExtension(this.fileNameDBF);
 
       if (this.tableType == DbfTableType.Undefined)
       { // Scan extension of files for detect type...
-        if (File.Exists(fileName + ".dbt"))
+        if (File.Exists(fileName + ".ndx"))
         {
-          this.tableType = DbfTableType.DBase3;                                     // or DbfTableType.Clipper
+          this.tableType = DbfTableType.DBase3;                                      
+        }
+        else if (File.Exists(fileName + ".ndx"))
+        {
+          this.tableType = DbfTableType.DBase3;                                      
         }
       }
 
@@ -643,9 +920,11 @@ namespace NDbfReaderEx
 
       switch (this.tableType)
       {
-        case DbfTableType.Clipper:                                                         
+        case DbfTableType.Clipper:  
+          fileName += ".ntx";
+          break;                                   
         case DbfTableType.DBase3:
-          fileName += ".dbt";
+          fileName += ".ndx";
           break;
         case DbfTableType.Undefined:
           throw ExceptionFactory.CreateArgumentException("tableType", "Don't be known the format of the memory file!");
@@ -685,5 +964,72 @@ namespace NDbfReaderEx
     }
 
     #endregion
+
+    #region technical ---------------------------------------------------------------------------------------
+
+    private string GetIndexExtension(DbfTableType tableType)
+    {
+      string ret = null;
+
+      switch (tableType)
+      {
+        case DbfTableType.Clipper:
+          ret = ".ntx";
+          break;
+
+        case DbfTableType.DBase3:
+          ret = ".ndx";
+          break;
+
+        case DbfTableType.Undefined:
+          ret = null;
+          break;
+
+        default:
+          Debug.Fail("GetIndexExtension(): invalid 'DbfTableType' parameter value!");
+          break;
+      }
+
+      return ret;
+    }
+
+
+    private void StoreTableType(DbfTableType tableType)
+    {
+      if (this.tableType == DbfTableType.Undefined)
+      {
+        this.tableType = tableType; 
+      }
+      else if (tableType == DbfTableType.Undefined)
+      { // Do nothing: Don't forget a better this.tableType value
+      }
+      else if (this.tableType != tableType)
+      {
+        throw ExceptionFactory.CreateArgumentException("tableType", "Different dbf table type parameter value!");
+      }
+    }
+
+
+    private bool isDbtMemoFileForDbf()
+    {
+      bool ret = false;
+
+      switch (_header.type)
+      {
+        case DbfFileTypes.DBase3:                                                         // Clipper use these too.
+          ret = isExistsMemoField;
+          break;
+        case DbfFileTypes.DBase3M:
+          ret = true;
+          break;
+        default:
+          ret = false;
+          break;
+      }
+
+      return ret;
+    }
+   
+    #endregion  
   }
 }

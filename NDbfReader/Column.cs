@@ -177,6 +177,8 @@ namespace NDbfReaderEx
     /// <param name="rowBuffer">The byte array from which a value should be loaded.</param>
     /// <returns></returns>
     public abstract bool IsNull(byte[] rowBuffer);
+
+    public abstract void SetNull(byte[] rowBuffer);
   }
 
 

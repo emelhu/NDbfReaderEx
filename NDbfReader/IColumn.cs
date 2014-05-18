@@ -3,9 +3,10 @@
 namespace NDbfReaderEx
 {
   /// <summary>
-  /// Represents a dBASE/Clipper column.
+  /// Represents only basic information of dBASE/Clipper column. 
+  /// It is targeted for store reader's header info and for create new table
   /// </summary>
-  public interface IColumn
+  public interface IColumnBase
   {
     /// <summary>
     /// Gets the column name.
@@ -13,9 +14,9 @@ namespace NDbfReaderEx
     string name { get; }
 
     /// <summary>
-    /// Gets the <c>CLR</c> type of a column value.
+    /// Gets the <c>DBF</c> type of a column value.
     /// </summary>
-    Type type { get; }
+    NativeColumnType dbfType { get; }
 
     /// <summary>
     /// Gets the column size in bytes/characters.
@@ -26,11 +27,18 @@ namespace NDbfReaderEx
     /// Gets the number of decimal places in bytes/characters.
     /// </summary>
     short dec { get; }
+  }
 
+
+  /// <summary>
+  /// Represents a dBASE/Clipper column.
+  /// </summary>
+  public interface IColumn : IColumnBase
+  {
     /// <summary>
-    /// Gets the <c>DBF</c> type of a column value.
+    /// Gets the <c>CLR</c> type of a column value.
     /// </summary>
-    NativeColumnType dbfType { get; }
+    Type type { get; }
 
     /// <summary>
     /// Gets the width to display of a column value.

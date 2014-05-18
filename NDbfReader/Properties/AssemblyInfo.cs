@@ -7,12 +7,12 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("NDbfReader")]
+[assembly: AssemblyTitle("NDbfReaderEx")]
 [assembly: AssemblyDescription("DBF files reader for .NET Framework")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Stanislav Fajfr")]
-[assembly: AssemblyProduct("NDbfReader")]
-[assembly: AssemblyCopyright("Copyright © 2014 Stanislav Fajfr")]
+[assembly: AssemblyCompany("eMeL.hu")]
+[assembly: AssemblyProduct("NDbfReaderEx")]
+[assembly: AssemblyCopyright("Copyright © 2014 eMeL")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -22,7 +22,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("352dfd54-b9f7-4245-bb98-fcfec2a2a455")]
+[assembly: Guid("F8AC7D2F-99A4-4833-AFD9-7A98768E0C1C")]
 
 // Version information for an assembly consists of the following four values:
 //
@@ -34,7 +34,7 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("1.0.2.0")]
-[assembly: AssemblyFileVersion("1.0.2.0")]
+[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyFileVersion("1.1.0.0")]
 
 [assembly: CLSCompliant(true)]

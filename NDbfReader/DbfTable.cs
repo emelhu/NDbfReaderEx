@@ -15,11 +15,12 @@ using System.Text;
 
 // Fileformat info:
 // http://www.dbf2002.com/dbf-file-format.html                          -- DBF
-// http://www.cs.cmu.edu/~varun/cs315p/xbase.txt                        -- DBF & DBT
+// http://www.cs.cmu.edu/~varun/cs315p/xbase.txt                        -- DBF & DBT & NDX/NTX/etc.
 // http://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm              -- memo DBT
 // http://msdn.microsoft.com/en-us/library/aa975374(v=vs.71).aspx       -- FoxPro memo FPT
 // http://ulisse.elettra.trieste.it/services/doc/dbase/DBFstruct.htm    -- DBF, a few words from DBT
 // http://www.clicketyclick.dk/databases/xbase/format/index.html        -- DBT
+// http://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm              -- dbase7 table
 
 // http://tmpvar.com/markdown.html   for prewiew of *.MD files :)
 // https://help.github.com/articles/github-flavored-markdown     -- help
@@ -41,20 +42,23 @@ namespace NDbfReaderEx
   {
     #region variables -------------------------------------------------------------------------------------
 
-    private readonly Stream       _stream;
-    private readonly IColumn[]    _columns;
-    private readonly Encoding     _encoding;
+    private  readonly Stream       _stream;
+    internal readonly IColumn[]    _columns;
+    private  readonly Encoding     _encoding;
 
-    private          DbfHeader    _header;
+    private           DbfHeader    _header;
+    public  readonly  Guid         dbfTableClassID = Guid.NewGuid();   
 
-    private          MemoFileBase  _memoFile;
+    private           MemoFileBase  _memoFile;
 
-    private          DbfTableType _tableType  = DbfTableType.Undefined; 
+    private           List<IndexFileBase> _indexFiles;
+
+    private           DbfTableType _tableType  = DbfTableType.Undefined; 
     
-    private          bool         _disposed   = false;
+    private           bool         _disposed   = false;
 
-    public           bool         skipDeleted = true;                             // leave out deleted rows from result (Enumerate)
-    public           bool         memoStreamCloseWhenDispose = true;              // detached rows can or can't read it after DbfTable closed.
+    public            bool         skipDeleted = true;                             // leave out deleted rows from result (Enumerate)
+    public            bool         memoStreamCloseWhenDispose = true;              // detached rows can or can't read it after DbfTable closed.
 
     #endregion
 
@@ -64,7 +68,7 @@ namespace NDbfReaderEx
     {
       this._stream = stream;
     
-      ResreshHeaderInfo();
+      RefreshHeaderInfo();
 
       //      
 
@@ -84,7 +88,7 @@ namespace NDbfReaderEx
 
       //
 
-      int calcLen = _header.firstRecordPosition + (_header.recCount * _header.rowLength);
+      int calcLen = _header.firstRecordPosition + (_header.recCount * _header.rowLength) + 1;
 
       if ((stream.Length < calcLen) || (stream.Length > calcLen + 1))  
       { // dBase & Clipper different (There is or there isn't a 0x1F character at end of DBF data file .
@@ -101,7 +105,7 @@ namespace NDbfReaderEx
 
     #region Dbf file control  -------------------------------------------------------------------------------
 
-    public void ResreshHeaderInfo()
+    public void RefreshHeaderInfo()
     {
       _header = ReadDbfHeader(_stream);
 
@@ -234,9 +238,17 @@ namespace NDbfReaderEx
 
       //
 
-      var stream = new FileStream(path, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
+      var streamDBF = new FileStream(path, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
 
-      return CreateHeader_DBF(stream, columns, tableType, CodepageCodes.OEM, encoding);                              
+      DbfTable dbfTable = CreateHeader_DBF(streamDBF, columns, tableType, CodepageCodes.OEM, encoding);
+
+      if (dbfTable.isExistsMemoField)
+      {
+        Stream streamMemo = CreateHeader_Memo(path, tableType);
+        dbfTable.JoinMemoStream(streamMemo, tableType);
+      }
+
+      return dbfTable;  
     }
 
     /// <summary>
@@ -383,6 +395,16 @@ namespace NDbfReaderEx
       {
         _memoFile.Dispose();
       }
+
+      //
+
+      if (_indexFiles != null)
+      {
+        foreach (var indexFile in _indexFiles)
+        {
+          indexFile.Dispose();
+        }
+      }
     }
 
     /// <summary>
@@ -498,7 +520,7 @@ namespace NDbfReaderEx
 
   public enum DbfTableType                                                              // format of DBF (data) and closed DBF/FPT/etc. (memo)
   {
-    Undefined = 0,                                                                      // Default, same then dBase3
+    Undefined = 0,                                                                       
     DBase3,
     Clipper  //,
     //FoxPro

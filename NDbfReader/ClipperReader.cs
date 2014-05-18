@@ -31,7 +31,7 @@ namespace NDbfReaderEx
       this._dbfTable   = dbfTable;
       this.skipDeleted = skipDeleted;
 
-      GoTop();
+      Top();
     }
     
     #region row positioning  ------------------------------------------------------------------------------
@@ -39,7 +39,7 @@ namespace NDbfReaderEx
     /// <summary>
     /// Content of actRow has valid?
     /// </summary>
-    public bool eof { get { return _row == null; } }                                  // syntax/operating mode like dBase language :)
+    public bool eof { get { return (_row == null); } }                                  // syntax/operating mode like dBase language :)
 
     /// <summary>
     /// Get or set record number of DBF rows and set right content of actual row
@@ -88,16 +88,26 @@ namespace NDbfReaderEx
       return MarchingMore(false, step * -1);
     }
 
-    public bool GoTop()
+    public bool Top()
     {
       recNo = 0;
+
+      if (!eof && skipDeleted && row.deleted)
+      {
+        MarchingOne(true);
+      }
       
       return eof;
     }
 
-    public bool GoBottom()
+    public bool Bottom()
     {
       recNo = recCount - 1;
+
+      if (!eof && skipDeleted && row.deleted)
+      {
+        MarchingOne(false);
+      }
       
       return eof;
     }

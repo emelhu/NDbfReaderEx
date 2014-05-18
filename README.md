@@ -29,7 +29,8 @@ If you have already readed necessary rows of dbf file you can close DbfTable, an
 You have got a dBase/Clipper syntax/operating mode like extension for DbfTable, called DbfTableReader.
 
 ``` 
-...and: A lot of things complettely redesigned and reimplemented for extendable code and simpler and flexible usage since original NDbfReader
+...and: A lot of things complettely redesigned and reimplemented for extendable code 
+and simpler and flexible usage since original NDbfReader.
 ```
 
 ## Example
@@ -48,6 +49,11 @@ using (DbfTable table = DbfTable.Open(filename, Encoding.GetEncoding(437)))
     Console.WriteLine("DDD: " + row.GetBoolean("DDD")); 
     Console.WriteLine("EEE: " + row.GetString("EEE"));   // MEMO!
   }
+  
+  // but can read direct too
+  
+  DbfRow rowFirst = table.GetRow(0);                    // first record of table
+  DbfRow rowLast  = table.GetRow(table.recCount - 1);   // last  record of table
 }
 ```
 
@@ -66,6 +72,24 @@ using (var table = Table.Open("D:\\foo.dbf"), Encoding.GetEncoding(1250))
 }
 ```
 
+###A dbf table can be readed by reader like Clipper did it:
+It good to take an old Clipper .prg source code and refactor it. 
+
+```csharp
+using (var table = Table.Open("D:\\foo.dbf"))         // without Encoding: use 'Code page mark' byte from Dbf header! Gooood! (not only English World)
+{   
+  ClipperReader reader = table.OpenClipperReader(true);     // skip deleted ON
+
+  while(! reader.eof)
+  {
+    var name = reader.GetString("NAME");
+    //...
+    
+    reader.Next();
+  }
+}
+```
+
 ###An entire table can be loaded into a `DataTable` as original eXavera/NDbfReader:
 
 ```csharp
@@ -74,6 +98,8 @@ using (var table = Table.Open("D:\\foo.dbf"))
   return table.AsDataTable();
 }
 ```
+
+You can use more reader, enumerate, or direct record (by recNo) simulta even in more thread.
 
 Non-seekable (forward-only) streams are **NOT** supported _already_ (as original NDbfReader did it). 
 

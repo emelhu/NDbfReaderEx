@@ -46,5 +46,13 @@ namespace NDbfReaderEx
     {
       return (rowBuffer[offset_ + 1] == 0x00);                                   // This is not standard, but very logical ;)   [practically always returns false]
     }
+
+    public override void SetNull(byte[] rowBuffer)
+    {
+      for (int i = 0; i < size_; i++)
+      {
+        rowBuffer[offset_ + 1 + i] = 0x20;     
+      }
+    }
   }
 }

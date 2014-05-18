@@ -77,5 +77,10 @@ namespace NDbfReaderEx
           return true;
       }
     }
+
+    public override void SetNull(byte[] rowBuffer)
+    {
+      rowBuffer[offset_ + 1] = 0x20;     
+    }
   }
 }

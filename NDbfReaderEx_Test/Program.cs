@@ -68,6 +68,16 @@ namespace NDbfReaderEx_Test
           dispEllaptedTime = false;
           break;
 
+        case '5':
+          OpenNDX();
+          dispEllaptedTime = false;
+          break;
+
+        case '6':
+          OpenNTX();
+          dispEllaptedTime = false;
+          break;
+
         default:
           if (args.Length > 1)
           {
@@ -110,6 +120,8 @@ namespace NDbfReaderEx_Test
       Console.WriteLine("  '2' : Create test file and write rows/content.");
       Console.WriteLine("  '3' : Show raw data too.");
       Console.WriteLine("  '4' : Show memo field content.");
+      Console.WriteLine("  '5' : Open NDX index.");
+      Console.WriteLine("  '6' : Open NTX index.");
     }
     #endregion
 
@@ -378,6 +390,44 @@ namespace NDbfReaderEx_Test
       Console.WriteLine("CCC: " + row.GetDate("CCC")); 
       Console.WriteLine("DDD: " + row.GetBoolean("DDD")); 
       Console.WriteLine("EEE: " + row.GetString("EEE"));
+    }
+    #endregion
+
+    #region Test '5' ----------------------------------------------------------------------------------------
+
+    private static void OpenNDX()
+    {
+      string dbfName = "test_ix.dbf";
+      string ndxName = "test_ix.ndx";
+
+      using (DbfTable test = DbfTable.Open(dbfName, Encoding.GetEncoding(437)))
+      {
+        Console.WriteLine();
+        Console.WriteLine("Open index: " + ndxName);
+
+        IIndexFile ndx = test.JoinIndexFile(ndxName);
+
+        Console.WriteLine("Index key : " + ndx.KeyExpression);
+        Console.WriteLine();
+
+        var row = ndx.Top();
+
+        Console.WriteLine("----------------------------- 'AAA' field --------------------------------------");
+        Console.WriteLine("Top()   : '" + row.GetString("AAA") + "'");
+
+        row = ndx.Bottom();
+
+        Console.WriteLine();
+        Console.WriteLine("Bottom(): '" + row.GetString("AAA") + "'");
+      }
+    }
+    #endregion
+
+    #region Test '6' ----------------------------------------------------------------------------------------
+
+    private static void OpenNTX()
+    {
+      Console.WriteLine("Don't realized yet!");
     }
     #endregion
   }

@@ -4,6 +4,9 @@ This code forked from https://github.com/eXavera/NDbfReader
 
 Original code by Stanislav Fajfr ( eXavera )
 
+A lot of things complettely redesigned and reimplemented for extendable code 
+and simpler and flexible usage since original NDbfReader.
+
 ***************************************************************************************************
 
 If you have question or comment send me it.

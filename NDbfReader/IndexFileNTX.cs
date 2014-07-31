@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -49,12 +50,12 @@ namespace NDbfReaderEx
 
     #endregion
 
-    public IndexFileNTX(Stream stream, DbfTable dbfTable, bool skipDeleted)
-      : base(stream, dbfTable, skipDeleted)                                   // 'stream', 'dbfTable' and 'skipDeleted' already stored by base class constructor   
+    public IndexFileNTX(Stream stream, DbfTable dbfTable, bool? skipDeleted = null, UInt32 indexPageCacheSize = 0)
+      : base(stream, dbfTable, skipDeleted, indexPageCacheSize)               // 'stream', 'dbfTable' and 'skipDeleted' already stored by base class constructor   
     { 
-      IsStreamValid(stream, true);                                            // Exception if error
+      this.header = GetHeader(stream);                                        // fill 'header' & IsStreamValid/Exception if error
 
-      FillHeader();                                                           // fill 'header'
+      Top();
     }
 
     #region Key position ------------------------------------------------------------------------------------
@@ -88,9 +89,21 @@ namespace NDbfReaderEx
 
     #region NTX info ----------------------------------------------------------------------------------------
     
-    public override byte[] GetKeyExpression()
+    public override string GetKeyExpression()
     {
-      return GetKeyExpression(stream);
+      return ProcessKeyExpressionBuffer(this.header.keyExpr);
+    }
+
+    protected override int  GetKeyBytesLen()
+    {
+      return header.keySize;
+    }
+
+    static public string GetKeyExpression(Stream stream)
+    { // from full buffer, IndexFileBase class will process it.                                    
+      var header = GetHeader(stream);
+
+      return ProcessKeyExpressionBuffer(header.keyExpr);
     }
 
     public override bool IsStreamValid(bool throwException)
@@ -100,151 +113,98 @@ namespace NDbfReaderEx
     
     static public bool IsStreamValid(Stream stream, bool throwException = false)
     {
-      if (stream.Length < (pageSize * 2))
+      try
+      {
+        GetHeader(stream);
+        
+        return true;
+      }
+      catch 
       {
         if (throwException)
         {
-          throw ExceptionFactory.CreateArgumentOutOfRangeException("stream", "NTX index stream length '{0}' < '{1}'!", stream.Length, (pageSize * 2));
+          throw;
         }
-        
-        return false;
+      }
+
+      return false;
+    }
+    
+    public static NtxHeader GetHeader(Stream stream)
+    {
+      if (stream.Length < (pageSize * 2))
+      {
+        throw ExceptionFactory.CreateArgumentOutOfRangeException("stream", "NTX index stream length '{0}' < '{1}'!", stream.Length, (pageSize * 2));
       }
 
       if ((stream.Length % pageSize) != 0)
       {
-        if (throwException)
-        {
-          throw ExceptionFactory.CreateArgumentOutOfRangeException("stream", "NTX index stream length ({0}) isn't a multiple of '{1}'!", stream.Length, pageSize);
-        }
-
-        return false;
-      }
-
-      stream.Position = 0;
-
-      BinaryReader reader = new BinaryReader(stream);                           // don't use 'using (BinaryReader reader...' because 'using' dispose 'stream' too!
-
-      byte signature = reader.ReadByte();
-
-      if (! Array.Exists(validSignatures, s => (s == signature)))
-      {
-        if (throwException)
-        {
-          throw ExceptionFactory.CreateArgumentOutOfRangeException("stream", "Signature of NTX index stream is invalid! '{0}'", signature);
-        }
-
-        return false;
-      }
-
-
-      byte signature2 = reader.ReadByte();
-
-      if (signature2 != 0)
-      {
-        if (throwException)
-        {
-          throw ExceptionFactory.CreateArgumentOutOfRangeException("stream", "Second signature byte in NTX index stream header is invalid!");
-        }
-
-        return false;
+        throw ExceptionFactory.CreateArgumentOutOfRangeException("stream", "NTX index stream length ({0}) isn't a multiple of '{1}'!", stream.Length, pageSize);
       }
 
       //
 
-      stream.Position = 12;
-
-      UInt16 keySizePlus8 = reader.ReadUInt16();
-      UInt16 keySize      = reader.ReadUInt16();
-
-      if ((keySize < 1) || (keySize > 250))
-      {
-        if (throwException)
-        {
-          throw ExceptionFactory.CreateArgumentOutOfRangeException("stream", "Key size in NTX index stream header is invalid!");
-        }
-
-        return false;
-      }
-
-      if ((keySize + 8) != keySizePlus8)
-      {
-        if (throwException)
-        {
-          throw ExceptionFactory.CreateArgumentOutOfRangeException("stream", "Key size (+8) in NTX index stream header is invalid!");
-        }
-
-        return false;
-      }
-
-      //
-
-      if (GetKeyExpression(stream) == null)
-      {
-        if (throwException)
-        {
-          throw ExceptionFactory.CreateArgumentOutOfRangeException("stream", "Key expression in NTX index stream header is invalid!");
-        }
-
-        return false;
-      }
-
-      byte uniqueFlag = reader.ReadByte();
-
-      if (! ((uniqueFlag == 0) || (uniqueFlag == 1)))
-      {
-        if (throwException)
-        {
-          throw ExceptionFactory.CreateArgumentOutOfRangeException("stream", "Unique flag in NTX index stream header is invalid!");
-        }
-
-        return false;
-      }
-
-      // TODO: ...more check code here...
-
-      return true;
-    }
-
-
-    static public byte[] GetKeyExpression(Stream stream)
-    { // return full buffer, IndexFileBase calss will process it.                                    
-      if (stream.Length < (pageSize * 2))
-      {
-        return null;                                                          // Null return value for signals key error!
-      }
-
-      //
-
-      byte[] buffer = new byte[maxKeyLen];
-
-      stream.Position = 22;                                                   // Position of "Key expression" in stream 
-      stream.Read(buffer, 0, buffer.Length);
-
-      return ProcessKeyExpressionBuffer(buffer);
-    }
-
-    private void FillHeader()
-    {
-      this.header = new NtxHeader();
+      NtxHeader header = new NtxHeader();
 
       stream.Position = 0;   
  
       BinaryReader reader = new BinaryReader(stream);                           // don't use 'using (BinaryReader reader...' because 'using' dispose 'stream' too!
 
-      this.header.signature = reader.ReadUInt16();
-      this.header.version   = reader.ReadUInt16();
-      this.header.root      = reader.ReadInt32();
-      this.header.unused    = reader.ReadInt32();
-      this.header.itemSize  = reader.ReadUInt16();
-      this.header.keySize   = reader.ReadUInt16();
-      this.header.keyDec    = reader.ReadUInt16();
-      this.header.maxItem   = reader.ReadUInt16();
-      this.header.halfPage  = reader.ReadUInt16();
+      header.signature = reader.ReadUInt16();
+      header.version   = reader.ReadUInt16();
+      header.root      = reader.ReadInt32();
+      header.unused    = reader.ReadInt32();
+      header.itemSize  = reader.ReadUInt16();
+      header.keySize   = reader.ReadUInt16();
+      header.keyDec    = reader.ReadUInt16();
+      header.maxItem   = reader.ReadUInt16();
+      header.halfPage  = reader.ReadUInt16();
+      header.keyExpr   = reader.ReadBytes(maxKeyLen);
 
-      reader.BaseStream.Position = 278;
-      this.header.unique    = reader.ReadBoolean();
+      byte uniqueFlag  = reader.ReadByte();
+      header.unique    = (uniqueFlag != 0);                    
 
-      this.header.keyExpr   = Encoding.ASCII.GetString(GetKeyExpression(stream));
+      Debug.Assert(reader.BaseStream.Position == 279);
+
+      //
+
+      byte sign1Byte = (byte)(header.signature >> 8);                             // get first byte
+
+      if (! Array.Exists(validSignatures, s => (s == sign1Byte)))
+      {
+        throw ExceptionFactory.CreateArgumentOutOfRangeException("stream", "Signature byte of NTX index stream is invalid! '{0}'", sign1Byte);
+      }
+
+      byte sign2Byte = (byte)(header.signature);                                  // cut off first byte
+
+      if (sign2Byte != 0)
+      {
+        throw ExceptionFactory.CreateArgumentOutOfRangeException("stream", "Second signature byte in NTX index stream header is invalid!'{0}'", sign2Byte);
+      }
+
+      if ((header.keySize < 1) || (header.keySize > 250))
+      {
+        throw ExceptionFactory.CreateArgumentOutOfRangeException("stream", "Key size in NTX index stream header is invalid!");
+      }
+
+      if ((header.keySize + 8) != header.itemSize)
+      {
+        throw ExceptionFactory.CreateArgumentOutOfRangeException("stream", "Key size (+8) in NTX index stream header is invalid!");
+      }
+
+      if (ProcessKeyExpressionBuffer(header.keyExpr) == null)
+      {
+        throw ExceptionFactory.CreateNotSupportedException("Content of key expression bytes is envalid!");
+      }
+
+      if (! ((uniqueFlag == 0) || (uniqueFlag == 1)))
+      {
+        throw ExceptionFactory.CreateArgumentOutOfRangeException("stream", "Unique flag in NTX index stream header is invalid!");
+      }
+
+      //
+
+      return header;
     }
 
     #endregion
@@ -252,6 +212,7 @@ namespace NDbfReaderEx
 
   //*******************************************************************************************************
 
+  [CLSCompliant(false)]
   public class NtxHeader 
   {
     public UInt16   signature;                                                // must be equal to 03.
@@ -263,7 +224,7 @@ namespace NDbfReaderEx
     public UInt16   keyDec;                                                   // for numeric keys / No. of decimals in key                   
     public UInt16   maxItem;                                                  // The maximum number of keys (with their pointers) that can fit on an index page.
     public UInt16   halfPage;                                                 // The maximum number of keys that can fit on an index page, divided by two. This is an important value in a B-tree system as it is the minimum number of keys that must be on a page.
-    public string   keyExpr;                                                  // The actual expression on which the index was built.
+    public byte[]   keyExpr;                                                  // The actual expression on which the index was built.
     public bool     unique;                                                   // Unique index flag
   };
 }

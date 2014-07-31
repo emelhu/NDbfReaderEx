@@ -9,19 +9,69 @@ using System.Text;
 
 namespace NDbfReaderEx
 {
-  internal abstract class IndexFileBase : IIndexFile, IDisposable
+  public abstract class IndexFileBase : IIndexFile, IDisposable
   {
-    #region variables
+    #region variables, properties --------------------------------------------------------------------------
     
     protected Stream  stream;
 
     public    bool      disposed { get; private set; }
 
-    private   DbfTable _dbfTable;
-    private   DbfRow   _row = null;
+    protected DbfTable _dbfTable;
+    protected DbfRow   _row = null;
 
-    public bool      skipDeleted;    
- 
+    private bool _skipDeleted = false;
+
+    public bool skipDeleted 
+    { 
+      get { return GetSkipDeleted(); } 
+      set { SetSkipDeleted(value);} 
+    }
+
+    //
+
+    public bool GetSkipDeleted()    {return _skipDeleted;}
+
+    public void SetSkipDeleted(bool newValue)
+    {
+      if (_row != null)
+      {
+        if (_row.deleted && newValue)
+        {
+          _row = null;                                                            // there isn't selected row  already
+        }
+      }
+
+      _skipDeleted = newValue;
+    }
+
+    //
+
+    internal IndexPageCache indexPageCache = null;
+
+    public UInt32 indexPageCacheSize 
+    { 
+      get 
+      {
+        if (indexPageCache != null)
+        {
+          return indexPageCache.pageCount;
+        }
+
+        return 0;                                                                 // There isn't page cache
+      } 
+
+      set 
+      {
+        if (value == 0)
+        {
+          indexPageCache = null;                                                  // There isn't page cache                                           
+        }
+
+        indexPageCache.pageCount = value;
+      } 
+    }
+
     //
 
     const int enabledKeyCharsLen = 128;                                           // valid byte codes in key is only 'low ASCII'
@@ -30,7 +80,9 @@ namespace NDbfReaderEx
       
     #endregion
 
-    internal IndexFileBase(Stream stream, DbfTable dbfTable, bool skipDeleted)
+    #region constructor -----------------------------------------------------------------------------------
+
+    internal IndexFileBase(Stream stream, DbfTable dbfTable, bool? skipDeleted = null, UInt32 indexPageCacheSize = 0)
     {
       disposed = false;
 
@@ -40,11 +92,10 @@ namespace NDbfReaderEx
       }
 
      
-      this.stream = stream;
-      this._dbfTable   = dbfTable;
-      this.skipDeleted = skipDeleted;
-
-      Top();
+      this.stream             = stream;
+      this._dbfTable          = dbfTable;
+      this.skipDeleted        = skipDeleted ?? dbfTable.skipDeleted;
+      this.indexPageCacheSize = indexPageCacheSize;
     }
 
 
@@ -71,6 +122,26 @@ namespace NDbfReaderEx
       enabledKeyChars[(byte)'('] = true;
       enabledKeyChars[(byte)')'] = true;
     }
+    #endregion
+
+    #region interface -------------------------------------------------------------------------------------
+
+    public UInt32 GetIndexPageCacheSize()         {return indexPageCacheSize;}
+
+    [CLSCompliant(false)]
+    public void   SetIndexPageCacheSize(UInt32 newValue)
+    {
+      indexPageCacheSize = newValue;
+    } 
+                     
+    public void   ClearIndexPageCache()
+    {
+      if (indexPageCacheSize != null)
+      {
+        indexPageCacheSize = 0;                                                   // set null the buffer (so clear all)
+      }
+    }                        
+    #endregion
 
     #region IDisposable Members
 
@@ -102,39 +173,128 @@ namespace NDbfReaderEx
       get { return _row; }
     }
 
-    public bool Next(int step = 1)
+    public DbfRow Next(int step = 1)
     {
       throw new NotImplementedException();
     }
 
-    public bool Prev(int step = 1)
+    public DbfRow Prev(int step = 1)
     {
       throw new NotImplementedException();
     }
 
-    public bool Top()
+    public DbfRow Top()
+    {
+      if (_dbfTable.recCount < 1)
+      {
+        return null;                                                              // don't found
+      }
+
+      return GetRow(GetTop());
+    }
+
+    public DbfRow Bottom()
+    {
+      if (_dbfTable.recCount < 1)
+      {
+        return null;                                                              // don't found
+      }
+
+      return GetRow(GetBottom());
+    }
+
+    public DbfRow Seek(params object[] keys)
     {
       throw new NotImplementedException();
     }
 
-    public bool Bottom()
+    public DbfRow SoftSeek(params object[] keys)
     {
       throw new NotImplementedException();
     }
 
-    public bool Seek(params object[] keys)
+    private DbfRow GetRow(int dbfRecNo)
     {
-      throw new NotImplementedException();
+      if (dbfRecNo < 1)
+      { // '< 1' because recno rule as dbase/index rule
+        _row = null;                                                              // don't found
+      }
+      else
+      {
+        _row = _dbfTable.GetRow(dbfRecNo - 1, false);
+      }
+
+      return _row;
     }
 
-    public bool SoftSeek(params object[] keys)
+    public DbfRow  Seek(byte[] key, byte? appendByte = 0x20)
     {
-      throw new NotImplementedException();
+      if (key.Length > keyBytesLen)
+      {
+        throw ExceptionFactory.CreateArgumentException("key", "Key byte array length more then '{0}'!", keyBytesLen);
+      }
+      else if (key.Length < keyBytesLen)
+      {
+        if (appendByte == null)
+        {
+          throw ExceptionFactory.CreateArgumentException("key", "Key byte array length less then '{0}'!", keyBytesLen);
+        }
+        else
+        {
+          int startIx = key.Length;
+
+          Array.Resize(ref key, keyBytesLen);
+
+          for (int i = startIx; i < keyBytesLen; i++)
+          {
+            key[i] = (byte)appendByte;
+          }
+
+          throw new NotImplementedException();
+        }
+      }
+
+      return GetRow(SeekKey(key, false));
+    }
+
+    public DbfRow  SoftSeek(byte[] key)
+    {
+      if (key.Length > keyBytesLen)
+      {
+        throw ExceptionFactory.CreateArgumentException("key", "Key byte array length more then '{0}'!", keyBytesLen);
+      }
+
+      return GetRow(SeekKey(key, true));
+    }
+
+    public DbfRow  Seek(string key, char? appendChar = null)
+    {
+      byte? appendByte = null;
+
+      if (appendChar != null)
+      {
+        string tempString = new String((char)appendChar, 1);                                // is there a best way?
+        var    tempByte   = _dbfTable.encoding.GetBytes(tempString);
+        
+        appendByte = tempByte[0];
+      }
+
+      return Seek(_dbfTable.encoding.GetBytes(key), appendByte);
+    }
+
+    public DbfRow  SoftSeek(string key)
+    {
+      return SoftSeek(_dbfTable.encoding.GetBytes(key));
     }
 
     public string KeyExpression
     {
-      get { throw new NotImplementedException(); }
+      get { return GetKeyExpression(); }
+    }
+
+    public int keyBytesLen
+    {
+      get { return GetKeyBytesLen(); }
     }
 
     #endregion
@@ -148,17 +308,24 @@ namespace NDbfReaderEx
     protected abstract int  SeekKey(byte[] bytes, bool softSeek = false);
 
     public    abstract bool   IsStreamValid(bool throwException);
-    public    abstract byte[] GetKeyExpression();                           
+    public    abstract string GetKeyExpression();           
+    
+    protected abstract int  GetKeyBytesLen();        
 
     #endregion
 
-    static protected byte[] ProcessKeyExpressionBuffer(byte[] buffer)
+    #region technical -------------------------------------------------------------------------------------
+    
+    static protected string ProcessKeyExpressionBuffer(byte[] buffer)
     { // Helper function for GetKeyExpression()
+      int keyLen = 0;
+
       for (int i = 0; i < buffer.Length; i++)
       {
+        keyLen = i;
+
         if (buffer[i] == (byte)0)
         {
-          Array.Resize(ref buffer, i);
           break;
         }
 
@@ -168,12 +335,14 @@ namespace NDbfReaderEx
         }
       }
 
-      if (buffer.Length < 1)
+      if (keyLen < 1)
       {
         return null;
       }
 
-      return buffer;
+      return Encoding.ASCII.GetString(buffer, 0, keyLen).Trim(); 
     }
+
+    #endregion
   }
 }

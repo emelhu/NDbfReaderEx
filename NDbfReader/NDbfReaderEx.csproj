@@ -57,7 +57,9 @@
     <Compile Include="IIndexFile.cs" />
     <Compile Include="IMemoFile.cs" />
     <Compile Include="IndexFileBase.cs" />
+    <Compile Include="IndexFileNDX.cs" />
     <Compile Include="IndexFileNTX.cs" />
+    <Compile Include="IndexPageCache.cs" />
     <Compile Include="MemoColumn.cs" />
     <Compile Include="DateTimeColumn.cs" />
     <Compile Include="Column.cs" />

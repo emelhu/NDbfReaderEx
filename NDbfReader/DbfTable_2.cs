@@ -826,105 +826,93 @@ namespace NDbfReaderEx
 
     #region IndexFile ----------------------------------------------------------------------------------------
 
-    public void JoinIndexStream(Stream fileStream, bool? skipDeleted = null, DbfTableType tableType = DbfTableType.Undefined)
+    public IIndexFile JoinIndexStream(Stream fileStream, bool? skipDeleted = null, DbfTableType tableType = DbfTableType.Undefined)
     {
       StoreTableType(tableType);
 
       //
 
-      //if (this.tableType == DbfTableType.Undefined)
-      //{ // Scan memo stream for detect type...
-      // ... there aren't any signature in DBT or FPT file we can't detect type of it.
-      //}
-
-      // TODO
+      IndexFileBase indexFile = null;
 
       switch (this.tableType)
       {
-        case DbfTableType.Clipper:                                                         
+        case DbfTableType.Clipper:  
+          indexFile = new IndexFileNTX(fileStream, this, skipDeleted ?? this.skipDeleted);
+          break;                                             
         case DbfTableType.DBase3:
-          this._memoFile = new MemoFileDBT(fileStream, this.encoding);
+          indexFile = new IndexFileNDX(fileStream, this, skipDeleted ?? this.skipDeleted);
           break;
         case DbfTableType.Undefined:
-          throw ExceptionFactory.CreateArgumentException("tableType", "Don't be known the format of the memory stream!");
+          throw ExceptionFactory.CreateArgumentException("tableType", "Don't be known the format of the index stream!");
         default:
           throw new NotImplementedException();
       }
 
-      //
-
-      var memoFields = from col in _columns
-                       where col.dbfType == NativeColumnType.Memo
-                       select col;
-
-      foreach (var colDef in memoFields)
+      if (this._indexFiles == null)
       {
-        MemoColumn memoColumn = colDef as MemoColumn;
-
-        Debug.Assert(memoColumn != null);
-
-        memoColumn.memoFile = this._memoFile;
+        this._indexFiles = new List<IndexFileBase>();
       }
+
+      this._indexFiles.Add(indexFile);
+
+      return indexFile;
     }
 
-    private void JoinIndexFile(string indexFileID, char separatorChar, bool? skipDeleted = null, DbfTableType tableType = DbfTableType.Undefined)
+    public IIndexFile JoinIndexFile(char? separatorChar, string indexFileID, bool? skipDeleted = null, DbfTableType tableType = DbfTableType.Undefined)
     {
-      StoreTableType(tableType);
-
       string fileName = Path.GetFileNameWithoutExtension(this.fileNameDBF);
 
-      bool illegal = Array.Exists(Path.GetInvalidFileNameChars(), c => c == separatorChar);
-
-      if (! illegal)
+      if (separatorChar != null)
       {
-        fileName += separatorChar;
+        fileName += separatorChar; 
       }
 
-      string ext = GetIndexExtension(tableType);
+      fileName += indexFileID;
 
-      if (ext == null)
-      {
-
-      }
-
-      if (ext == null)
-      {
-        throw ExceptionFactory.CreateArgumentException("tableType", "Don't be known the format of the index file for filename extension!");
-      }
-
-      // 
-
-      JoinIndexFile(fileName, skipDeleted, tableType);
+      return JoinIndexFile(fileName, skipDeleted, tableType);
     }
 
-    private void JoinIndexFile(string indexFileName, bool? skipDeleted = null, DbfTableType tableType = DbfTableType.Undefined)
+    public IIndexFile JoinIndexFile(string indexFileName, bool? skipDeleted = null, DbfTableType tableType = DbfTableType.Undefined)
     {
       StoreTableType(tableType);
 
 
-      string fileName = Path.GetFileNameWithoutExtension(this.fileNameDBF);
+      string fileName = Path.GetFileNameWithoutExtension(indexFileName);
+      string fileExt  = Path.GetExtension(indexFileName);
 
-      if (this.tableType == DbfTableType.Undefined)
+      if (fileExt.ToUpper() == ".NDX")
+      {
+        tableType = DbfTableType.DBase3;
+      }
+      else if (fileExt.ToUpper() == ".NTX")
+      {
+        tableType = DbfTableType.Clipper;
+      }
+      // .... others too
+      else if (this.tableType == DbfTableType.Undefined)
       { // Scan extension of files for detect type...
-        if (File.Exists(fileName + ".ndx"))
+        if (File.Exists(fileName + ".NDX"))
         {
-          this.tableType = DbfTableType.DBase3;                                      
+          tableType = DbfTableType.DBase3;
         }
-        else if (File.Exists(fileName + ".ndx"))
+        else if (File.Exists(fileName + ".NTX"))
         {
-          this.tableType = DbfTableType.DBase3;                                      
+          tableType = DbfTableType.Clipper;
         }
+        // .... others too
       }
+
+      StoreTableType(tableType);                                        // Exception if not identical
 
       //
 
       switch (this.tableType)
       {
         case DbfTableType.Clipper:  
-          fileName += ".ntx";
+          fileName += ".NTX";
           break;                                   
         case DbfTableType.DBase3:
-          fileName += ".ndx";
+          fileName += ".NDX";
           break;
         case DbfTableType.Undefined:
           throw ExceptionFactory.CreateArgumentException("tableType", "Don't be known the format of the memory file!");
@@ -932,26 +920,25 @@ namespace NDbfReaderEx
           throw new NotImplementedException();
       }
 
+
       if (File.Exists(fileName))
       {
-        this.fileNameMemo = fileName;
-
         FileAccess access;
-        FileShare  share;
+        FileShare share;
 
         switch (openMode)
         {
           case DbfTableOpenMode.Exclusive:
             access = FileAccess.ReadWrite;
-            share  = FileShare.None;
+            share = FileShare.None;
             break;
           case DbfTableOpenMode.ReadWrite:
             access = FileAccess.ReadWrite;
-            share  = FileShare.ReadWrite;
+            share = FileShare.ReadWrite;
             break;
           case DbfTableOpenMode.Read:
             access = FileAccess.Read;
-            share  = FileShare.ReadWrite;
+            share = FileShare.ReadWrite;
             break;
           default:
             throw ExceptionFactory.CreateArgumentException("JoinMemoFile/Open(Openmode)", "Invalid open mode parameter!");
@@ -959,7 +946,11 @@ namespace NDbfReaderEx
 
         var stream = new FileStream(fileName, FileMode.Open, access, share);
 
-        JoinMemoStream(stream, this.tableType);
+        return JoinIndexStream(stream, skipDeleted, this.tableType);
+      }
+      else
+      {
+        throw ExceptionFactory.CreateArgumentException("indexFileName", "Index file does not found! [{0}/{1}]", indexFileName, fileName);
       }
     }
 

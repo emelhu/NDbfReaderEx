@@ -10,7 +10,7 @@ Original code by Stanislav Fajfr ( eXavera )
 
 ```
 Original code was forked because I found some fatal error when my code read dBase3/Clipper tables.
-...and I want a lot of extra too :)
+...and I wanted to use a lot of extra features too :)
 
 ```
 New NDbfReaderEx changed to positioning inside dbf file, you can reread previously readed records too 

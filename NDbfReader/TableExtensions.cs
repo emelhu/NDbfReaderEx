@@ -52,15 +52,17 @@ namespace NDbfReaderEx
     {
       for (int i = 0; i < table.recCount; i++)
       {
-        var rowDT  = dataTable.NewRow();
         var recDBF = table.GetRow(i);
-
-        foreach (var column in table.columns)
+        if (!recDBF.deleted || !table.skipDeleted)
         {
-          rowDT[column.name] = recDBF.GetValue(column) ?? DBNull.Value;
-        }
+          var rowDT = dataTable.NewRow();
+          foreach (var column in table.columns)
+          {
+            rowDT[column.name] = recDBF.GetValue(column) ?? DBNull.Value;
+          }
 
-        dataTable.Rows.Add(rowDT);
+          dataTable.Rows.Add(rowDT);
+        }
       }
     }
   }

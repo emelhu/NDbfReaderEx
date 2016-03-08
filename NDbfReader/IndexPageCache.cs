@@ -52,7 +52,7 @@ namespace NDbfReaderEx
           break;
         }
 
-        items.Remove(i);
+        items.Remove(pageNo);
       }
     }
 

@@ -1,16 +1,16 @@
 NDbfReaderEx
 ============
 ```
-NDbfReaderEx is a .NET library for reading dBASE (.dbf) files. 
+NDbfReaderEx is a .NET library for **reading** dBASE (.dbf) files. 
 The library is simple, extensible and without any external dependencies.
 ```
 This code forked from https://github.com/eXavera/NDbfReader
 
-Original code by Stanislav Fajfr ( eXavera )
+_Original code by Stanislav Fajfr ( eXavera )_
 
 ```
 Original code was forked because I found some fatal error when my code read dBase3/Clipper tables.
-...and I wanted to use a lot of extra features too :)
+...and I wanted to use a **lot of extra features** too :)
 
 ```
 New NDbfReaderEx changed to positioning inside dbf file, you can reread previously readed records too 
@@ -103,6 +103,47 @@ You can use more reader, enumerate, or direct record (by recNo) simulta even in 
 
 Non-seekable (forward-only) streams are **NOT** supported _already_ (as original NDbfReader did it). 
 
+## PoCo class
+
+There are a possibility to use **PoCo class** for read (after version 1.3).
+You can create *.cs source file (contains PoCo class that simultaneous of dbf) from a DBF file header information and if you add this class to your project, you can fill it from dbf's row or you can enumerate dbf table and get rows in PoCo class.
+
+_Create Poco Class from DBF table:_
+```csharp
+#if DEBUG -- called from application if cs file not found, create *.cs directly to target dictionary of project
+internal static void CreateCS()
+{    
+    string dir         = Path.Combine(CreatePocoClass.GetSourceFileDirectory(), @"Data");
+    var    pocoCreator = new CreatePocoClass(CreatePocoClass.PocoType.Dynamic, dir, "Namespace.Data", true);  
+    string dbfName     = Path.Combine(dir, "TESTDATA.dbf");
+
+    DbfTable dbfTable  = DbfTable.Open(dbfName, Encoding.GetEncoding(852), DbfTableType.Clipper);
+    
+    pocoCreator.CreateCS("DBF_TESTDATA", dbfTable.columns);
+}
+#endif
+```
+
+_Read DBF rows directly on the created Poco Class:_
+```csharp
+using (var table = DbfTable.Open(dbfTestDataFileName, Encoding.GetEncoding(852)))
+{
+    ...
+    var rec = table.Get<DBF_TESTDATA>(recNo);
+    ...   
+    foreach (var rec in table.PocoEnumerator<DBF_TESTDATA>(startRecNo))
+    {          
+    }  
+    ...
+    foreach (DbfRow row in table)
+    { 
+        var rec = table.Get<DBF_TESTDATA>(row);
+        --or--
+        var rec = row.Get<DBF_TESTDATA>();
+    }         
+}
+```
+
 ## NuGet
 
 ```
@@ -118,6 +159,8 @@ Openning the solution requires Visual Studio 2012 or newer (including Express ed
 ## Tests & Examples
 
 You can see the supplied source of NDbfReaderEx_Test.exe
+
+There isn't any test program yet for PoCo class use (after version 1.3) but I have tested it inside a production app.
 
 ## License
 

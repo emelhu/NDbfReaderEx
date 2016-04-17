@@ -58,8 +58,7 @@ namespace NDbfReaderEx
     private           bool         _disposed   = false;
 
     public            bool         skipDeleted = true;                             // leave out deleted rows from result (Enumerate)
-    public            bool         memoStreamCloseWhenDispose = true;              // detached rows can or can't read it after DbfTable closed.
-
+    public            bool         memoStreamCloseWhenDispose = true;              // detached rows can or can't read it after DbfTable closed.    
     #endregion
 
     #region Constructor ---------------------------------------------------------------------------------
@@ -90,7 +89,7 @@ namespace NDbfReaderEx
 
       int calcLen = _header.firstRecordPosition + (_header.recCount * _header.rowLength) + 1;
 
-      if ((stream.Length < calcLen) || (stream.Length > calcLen + 1))  
+      if ((stream.Length < calcLen - 1) || (stream.Length > calcLen + 1))  
       { // dBase & Clipper different (There is or there isn't a 0x1F character at end of DBF data file .
         throw ExceptionFactory.CreateArgumentOutOfRangeException("DBF table", "Datafile length error! [got: {0} expected: {1}]", stream.Length, calcLen);
       }      
@@ -474,19 +473,44 @@ namespace NDbfReaderEx
       }
     }
 
-    public IEnumerator<DbfRow> GetEnumerator(bool skipDeleted)
+    public DbfTableRowEnumerator RowEnumerator()                                   // new from 1.3 version
     {
-      for (int i = 0; i < this.recCount; i++)
-      {
-        DbfRow row = this.GetRow(i);
+      return new DbfTableRowEnumerator(this, null, null, null);
+    }
 
-        if (skipDeleted && row.deleted)
-        {
-          continue;
-        }
+    public DbfTableRowEnumerator RowEnumerator(bool? skipDeleted, int? firstRecNo = null, int? lastRecNo = null)                                   // new from 1.3 version
+    {
+      return new DbfTableRowEnumerator(this, skipDeleted, firstRecNo, lastRecNo);
+    }
 
-        yield return row;
-      }
+    public DbfTableRowEnumerator RowEnumerator(int firstRecNo, bool? skipDeleted = null, int? lastRecNo = null)                                   // new from 1.3 version
+    {
+      return new DbfTableRowEnumerator(this, skipDeleted, firstRecNo, lastRecNo);
+    }
+
+    public DbfTableRowEnumerator RowEnumerator(int firstRecNo, int lastRecNo, bool? skipDeleted = null)                                   // new from 1.3 version
+    {
+      return new DbfTableRowEnumerator(this, skipDeleted, firstRecNo, lastRecNo);
+    }
+
+    public DbfTablePocoEnumerator<T> PocoEnumerator<T>() where T : class, new()                          // new from 1.3 version
+    {
+      return new DbfTablePocoEnumerator<T>(this, null, null, null);
+    }
+
+    public DbfTablePocoEnumerator<T> PocoEnumerator<T>(bool? skipDeleted, int? firstRecNo = null, int? lastRecNo = null) where T : class, new()                          // new from 1.3 version
+    {
+      return new DbfTablePocoEnumerator<T>(this, skipDeleted, firstRecNo, lastRecNo);
+    }
+
+    public DbfTablePocoEnumerator<T> PocoEnumerator<T>(int firstRecNo, bool? skipDeleted = null, int? lastRecNo = null) where T : class, new()                          // new from 1.3 version
+    {
+      return new DbfTablePocoEnumerator<T>(this, skipDeleted, firstRecNo, lastRecNo);
+    }
+    
+    public DbfTablePocoEnumerator<T> PocoEnumerator<T>(int firstRecNo, int lastRecNo, bool? skipDeleted = null) where T : class, new()                          // new from 1.3 version
+    {
+      return new DbfTablePocoEnumerator<T>(this, skipDeleted, firstRecNo, lastRecNo);
     }
     #endregion
   }

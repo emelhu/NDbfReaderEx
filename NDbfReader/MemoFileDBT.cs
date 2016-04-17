@@ -100,10 +100,10 @@ namespace NDbfReaderEx
       { // blockLoop: start of read to buffer, read length is blockSize
         int readed = stream.Read(memoBytes, blockLoop, blockSize);
 
-        if (readed < blockSize)
-        {
-          throw ExceptionFactory.CreateArgumentException("blockNo", "Read {0}. block of dbt memo stream: end of stream (read a segment from {1}. byte of block)!", blockNo, blockLoop);
-        }
+        //if (readed < blockSize)     -- it's no problem! When you read last record of memo file Read() result smaller block then blockSize.
+        //{
+        //  throw ExceptionFactory.CreateArgumentException("blockNo", "Read {0}. block of dbt memo stream: end of stream (read a segment from {1}. byte of block)!", blockNo, blockLoop);
+        //}
 
         int terminatorPos = Array.IndexOf(memoBytes, terminator);
 

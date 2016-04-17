@@ -541,6 +541,16 @@ namespace NDbfReaderEx
 
     #endregion
 
+    #region PoCo
+
+    public T Get<T>() where T : class, new()                          // new from 1.3 version
+    {
+      T t = (T)Activator.CreateInstance(typeof(T), this);
+
+      return t;
+    }     
+    #endregion
+
     #region field update ------------------------------------------------------------------------------
 
     // TODO
@@ -600,6 +610,26 @@ namespace NDbfReaderEx
       if (column == null)
       {
         throw ExceptionFactory.CreateArgumentOutOfRangeException("columnName", "Column {0} not found.", columnName);
+      }
+
+      return column;
+    }
+
+    public IColumn FindColumnByName(string columnName, bool nullReturnEnable)
+    { // There isn't default parameter value, so this function is wrote same as previous function, because this way is quicker then call it only with name parameter.
+      if (String.IsNullOrWhiteSpace(columnName))
+      {
+        throw new ArgumentNullException("columnName");
+      }
+
+      var column = _columns.FirstOrDefault(c => (String.Compare(c.name, columnName, true) == 0));      // case insensitive
+
+      if (column == null)
+      {
+        if (! nullReturnEnable)
+        {
+          throw ExceptionFactory.CreateArgumentOutOfRangeException("columnName", "Column {0} not found.", columnName);
+        }
       }
 
       return column;

@@ -48,8 +48,8 @@ namespace NDbfReaderEx
     //  set { SetIndexPageCacheSize(value);} 
     //}
 
-    UInt32  GetIndexPageCacheSize(); 
-    void    SetIndexPageCacheSize(UInt32 newValue);                             // 0: don't use cache, other user can modify index
+    int     GetIndexPageCacheSize(); 
+    void    SetIndexPageCacheSize(int newValue);                                // 0: don't use cache, other user can modify index
 
     void    ClearIndexPageCache();                                              // forget readed cache pages, read new content of disk index pages
 

@@ -53,6 +53,27 @@ namespace NDbfReaderEx
       get { return row_; }
     }
 
+    // http://stackoverflow.com/questions/1852837/is-there-a-generic-constructor-with-parameter-constraint-in-c
+    // http://stackoverflow.com/questions/700966/generic-type-in-constructor
+
+    public T Read<T>() where T : class, new()                         // new from 1.3 version
+    {
+      do 
+      {
+        row_ = dbfTable.GetRow(nextRecNo, false);                                             // Don't throw an exception, returns null if record not found
+
+        nextRecNo++;
+
+      } while (skipDeleted && (row_ != null) && row_.deleted);
+
+      return DbfTable.Get<T>(row_);
+    }
+
+    public T Get<T>() where T : class, new()                          // new from 1.3 version
+    {
+      return DbfTable.Get<T>(row_);
+    }
+
     #region field read --------------------------------------------------------------------------------------
         
     public string GetString(string columnName)

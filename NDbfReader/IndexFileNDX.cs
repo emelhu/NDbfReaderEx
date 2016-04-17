@@ -21,7 +21,7 @@ namespace NDbfReaderEx
 
     #endregion
 
-    public IndexFileNDX(Stream stream, DbfTable dbfTable, bool? skipDeleted = null, UInt32 indexPageCacheSize = 0)
+    public IndexFileNDX(Stream stream, DbfTable dbfTable, bool? skipDeleted = null, int indexPageCacheSize = 0)
       : base(stream, dbfTable, skipDeleted, indexPageCacheSize)               // 'stream', 'dbfTable' and 'skipDeleted' already stored by base class constructor   
     { 
       this.header = GetHeader(stream);                                        // fill 'header' & IsStreamValid/Exception if error

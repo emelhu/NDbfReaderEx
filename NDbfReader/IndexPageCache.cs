@@ -8,12 +8,12 @@ namespace NDbfReaderEx
 {
   internal class IndexPageCache
   {
-    private UInt32 _pageCount = 0;
+    private int _pageCount = 0;
     private Dictionary<int, IndexPageCacheItem> items = null;
 
-    public const uint MAXCACHESIZE = 100000;
+    public const int MAXCACHESIZE = 100000;
 
-    public UInt32 pageCount 
+    public int pageCount 
     {
       get { return _pageCount; }
     
@@ -23,16 +23,24 @@ namespace NDbfReaderEx
       }
     }
 
-    private void Resize(UInt32 newPageCount)
+    private void Resize(int newPageCount)
     {
       if (newPageCount > MAXCACHESIZE)
       {
         newPageCount = MAXCACHESIZE;
       }
+      else if (newPageCount < 0)
+      {
+        newPageCount = 0;
+
+        #if DEBUG
+        throw ExceptionFactory.CreateArgumentOutOfRangeException("newPageCount", "Count of pages must greater or equal then 0!");
+        #endif
+      }
 
       if (items.Count > newPageCount)
       { // Shrink size, remove oldest/not-used items
-        RemovePages(items.Count - (int)newPageCount);
+        RemovePages(items.Count - newPageCount);
       }
 
       _pageCount = newPageCount;      
@@ -40,19 +48,17 @@ namespace NDbfReaderEx
 
     private void RemovePages(int count)
     {
-      var pageNoList = 
-        from item in items.Values 
-        orderby item
-        select item.indexPageNo;
-
-      foreach (var pageNo in pageNoList)
+      if (count > 0)
       {
-        if (count < 1)
-        {
-          break;
-        }
+        var pageNoList =
+          from item in items.Values
+          orderby item
+          select item.indexPageNo;
 
-        items.Remove(i);
+        foreach (var pageNo in pageNoList)
+        {
+          items.Remove(pageNo);
+        }
       }
     }
 
@@ -61,7 +67,7 @@ namespace NDbfReaderEx
       items.Clear();
     }
 
-    public IndexPageCache(UInt32 pageCount)
+    public IndexPageCache(int pageCount)
     {
       _pageCount = pageCount;
 

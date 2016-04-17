@@ -419,6 +419,21 @@ namespace NDbfReaderEx_Test
 
         Console.WriteLine();
         Console.WriteLine("Bottom(): '" + row.GetString("AAA") + "'");
+
+        Console.WriteLine("All rows:");
+        row = ndx.Top();                                                    // dBase/Clipper style read
+
+        int rowCount = 0;
+
+        while (! ndx.eof)
+        {
+          rowCount++;
+
+          Console.WriteLine(rowCount.ToString("00000") + ": '" + row.GetString("AAA") + "'");
+          row = ndx.Next();         
+        }
+
+        Console.WriteLine("---eof---");
       }
     }
     #endregion

@@ -1,5 +1,9 @@
 ﻿***************************************************************************************************
 
+https://github.com/emelhu/NDbfReaderEx
+
+***************************************************************************************************
+
 This code forked from https://github.com/eXavera/NDbfReader
 
 Original code by Stanislav Fajfr ( eXavera )
@@ -19,5 +23,16 @@ Laszlo Moravecz / www.emel.hu  emel@emel.hu
 ***************************************************************************************************
 
 Plan: add a simple row update and insert feature
+
+***************************************************************************************************
+
+History:
+
+Added with 1.3 version:  (Read PoCo class from DBF table, and help for create PoCo class definition)
+
+  class CreatePocoClass                 (CreatePocoClass.cs)
+  func  Reader/Read<T>()                (Reader.cs)
+  func  Reader/Get<T>()                 (Reader.cs)
+  func  DbfTable/GetPocoEnumerator<T>() (DbfTable.cs)
 
 ***************************************************************************************************

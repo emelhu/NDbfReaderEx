@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -17,7 +18,9 @@ namespace NDbfReaderEx
 
     public    bool      disposed { get; private set; }
 
+    [CLSCompliant(false)]
     protected DbfTable _dbfTable;
+    [CLSCompliant(false)]
     protected DbfRow   _row = null;
 
     private bool _skipDeleted = false;
@@ -49,7 +52,7 @@ namespace NDbfReaderEx
 
     internal IndexPageCache indexPageCache = null;
 
-    public UInt32 indexPageCacheSize 
+    public int indexPageCacheSize 
     { 
       get 
       {
@@ -67,8 +70,10 @@ namespace NDbfReaderEx
         {
           indexPageCache = null;                                                  // There isn't page cache                                           
         }
-
-        indexPageCache.pageCount = value;
+        else
+        {
+          indexPageCache.pageCount = value;
+        }
       } 
     }
 
@@ -82,7 +87,7 @@ namespace NDbfReaderEx
 
     #region constructor -----------------------------------------------------------------------------------
 
-    internal IndexFileBase(Stream stream, DbfTable dbfTable, bool? skipDeleted = null, UInt32 indexPageCacheSize = 0)
+    internal IndexFileBase(Stream stream, DbfTable dbfTable, bool? skipDeleted = null, int indexPageCacheSize = 0)
     {
       disposed = false;
 
@@ -126,19 +131,19 @@ namespace NDbfReaderEx
 
     #region interface -------------------------------------------------------------------------------------
 
-    public UInt32 GetIndexPageCacheSize()         {return indexPageCacheSize;}
+    public int GetIndexPageCacheSize()         {return indexPageCacheSize;}
 
     [CLSCompliant(false)]
-    public void   SetIndexPageCacheSize(UInt32 newValue)
+    public void   SetIndexPageCacheSize(int newValue)
     {
       indexPageCacheSize = newValue;
     } 
                      
     public void   ClearIndexPageCache()
     {
-      if (indexPageCacheSize != null)
-      {
-        indexPageCacheSize = 0;                                                   // set null the buffer (so clear all)
+      if (indexPageCacheSize > 0)
+      {                                                
+        SetIndexPageCacheSize(0);                                               // set null the buffer (so clear all)
       }
     }                        
     #endregion
@@ -175,7 +180,23 @@ namespace NDbfReaderEx
 
     public DbfRow Next(int step = 1)
     {
-      throw new NotImplementedException();
+      Debug.Assert((step > 0), "Parameter of Next() must greater than 0!");
+
+      int recNo = 0;
+
+      while (step > 0)
+      {
+        recNo = GetNext();
+
+        if (recNo < 1)
+        {
+          break;
+        }
+
+        step--;
+      }
+
+      return GetRow(recNo);                                              // it returns null if pageNo    
     }
 
     public DbfRow Prev(int step = 1)

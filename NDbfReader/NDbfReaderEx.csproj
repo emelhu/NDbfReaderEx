@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -9,9 +9,10 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>NDbfReaderEx</RootNamespace>
     <AssemblyName>NDbfReaderEx</AssemblyName>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <TargetFrameworkProfile>Client</TargetFrameworkProfile>
+    <TargetFrameworkProfile>
+    </TargetFrameworkProfile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -25,6 +26,7 @@
     <DocumentationFile>
     </DocumentationFile>
     <CodeAnalysisIgnoreGeneratedCode>false</CodeAnalysisIgnoreGeneratedCode>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -34,6 +36,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <DocumentationFile>bin\Release\NDbfReaderEx.xml</DocumentationFile>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
     <SignAssembly>true</SignAssembly>
@@ -54,6 +57,9 @@
     <Compile Include="BooleanColumn.cs" />
     <Compile Include="ClipperReader.cs" />
     <Compile Include="ColumnDefinitionForCreateTable.cs" />
+    <Compile Include="CreatePocoClass.cs" />
+    <Compile Include="DbfTableEnumerator.cs" />
+    <Compile Include="DbfTablePoco.cs" />
     <Compile Include="IIndexFile.cs" />
     <Compile Include="IMemoFile.cs" />
     <Compile Include="IndexFileBase.cs" />
@@ -74,9 +80,17 @@
     <Compile Include="MemoFileDBT.cs" />
     <Compile Include="NativeColumnType.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
     <Compile Include="Reader.cs" />
     <Compile Include="StringColumn.cs" />
     <Compile Include="TableExtensions.cs" />
+    <Compile Include="Template\CreatePocoClassDynamicTemplate.cs" />
+    <Compile Include="Template\CreatePocoClassHardWiredTemplate.cs" />
+    <Compile Include="Template\CreatePocoClassSoftWiredTemplate.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="NDbfReaderEx.nuspec" />
@@ -87,6 +101,15 @@
       <Link>xbase.txt</Link>
     </Content>
     <Content Include="ReadMe__and__eMeL_ForkInfo.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Resources\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

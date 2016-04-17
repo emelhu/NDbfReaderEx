@@ -92,6 +92,7 @@ namespace NDbfReaderEx
     {
       FoxBASE       = 0x02,                                     // FoxBASE
       DBase3        = 0x03,                                     // FoxBASE+/Dbase III plus, no memo
+      BDE           = 0x04,                                     // Borland Database Engine *** NEW found *** added by eMeL
       VisualFoxPro  = 0x30,                                     // Visual FoxPro
       VisualFoxPro2 = 0x31,                                     // Visual FoxPro, autoincrement enabled
       VisualFoxPro3 = 0x32,                                     // Visual FoxPro with field type Varchar or Varbinary
@@ -680,8 +681,8 @@ namespace NDbfReaderEx
     }
 
     private static Stream CreateHeader_MemoDBT(string dbfFileName)
-    {
-      string dbtFileName = Path.GetFileNameWithoutExtension(dbfFileName) + ".dbt"; 
+    {      
+      string dbtFileName = Path.Combine(Path.GetDirectoryName(dbfFileName), Path.GetFileNameWithoutExtension(dbfFileName) + ".dbt");
       
       Stream stream = new FileStream(dbtFileName, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
       
@@ -757,23 +758,23 @@ namespace NDbfReaderEx
     {
       this.fileNameMemo = null;
 
-      string fileName = Path.GetFileNameWithoutExtension(this.fileNameDBF);
+      string fileName = Path.Combine(Path.GetDirectoryName(this.fileNameDBF), Path.GetFileNameWithoutExtension(this.fileNameDBF) + ".");
 
       switch (this.tableType)
       {
         case DbfTableType.Clipper:                                                         
         case DbfTableType.DBase3:
-          fileName += ".dbt";
+          fileName += "dbt";
           break;
         
         case DbfTableType.Undefined:
           if (isDbtMemoFileForDbf())
           {
-            fileName += ".dbt";
+            fileName += "dbt";
           }
-          else if (File.Exists(fileName + ".dbt"))
+          else if (File.Exists(fileName + "dbt"))
           {
-            fileName += ".dbt";
+            fileName += "dbt";
           }
           else
           {
@@ -784,8 +785,8 @@ namespace NDbfReaderEx
 
 
       if (String.IsNullOrWhiteSpace(fileName))
-      {
-        Trace.TraceWarning("Don't be known the format or name of the memo/blob file for '{0}' DBF file!", this.fileNameDBF);
+      {      
+        throw new Exception(String.Format("Don't be known the format or name of the memo/blob file for '{0}' DBF file!", this.fileNameDBF));
       }
       else if (File.Exists(fileName))
       {
@@ -818,7 +819,7 @@ namespace NDbfReaderEx
       }
       else
       {
-        Trace.TraceWarning("Don't found the '{0}' memo/blob file for '{1}' DBF file!", fileName, this.fileNameDBF);
+        throw new Exception(String.Format("Don't found the '{0}' memo/blob file for '{1}' DBF file!", fileName, this.fileNameDBF));
       }
     }
 
@@ -826,6 +827,7 @@ namespace NDbfReaderEx
 
     #region IndexFile ----------------------------------------------------------------------------------------
 
+    [CLSCompliant(false)]
     public IIndexFile JoinIndexStream(Stream fileStream, bool? skipDeleted = null, DbfTableType tableType = DbfTableType.Undefined)
     {
       StoreTableType(tableType);
@@ -858,9 +860,10 @@ namespace NDbfReaderEx
       return indexFile;
     }
 
+    [CLSCompliant(false)]
     public IIndexFile JoinIndexFile(char? separatorChar, string indexFileID, bool? skipDeleted = null, DbfTableType tableType = DbfTableType.Undefined)
     {
-      string fileName = Path.GetFileNameWithoutExtension(this.fileNameDBF);
+      string fileName = Path.Combine(Path.GetDirectoryName(this.fileNameDBF), Path.GetFileNameWithoutExtension(this.fileNameDBF));
 
       if (separatorChar != null)
       {
@@ -872,12 +875,12 @@ namespace NDbfReaderEx
       return JoinIndexFile(fileName, skipDeleted, tableType);
     }
 
+    [CLSCompliant(false)]
     public IIndexFile JoinIndexFile(string indexFileName, bool? skipDeleted = null, DbfTableType tableType = DbfTableType.Undefined)
     {
       StoreTableType(tableType);
 
-
-      string fileName = Path.GetFileNameWithoutExtension(indexFileName);
+      string fileName = Path.Combine(Path.GetDirectoryName(indexFileName), Path.GetFileNameWithoutExtension(indexFileName) + ".");
       string fileExt  = Path.GetExtension(indexFileName);
 
       if (fileExt.ToUpper() == ".NDX")
@@ -891,11 +894,11 @@ namespace NDbfReaderEx
       // .... others too
       else if (this.tableType == DbfTableType.Undefined)
       { // Scan extension of files for detect type...
-        if (File.Exists(fileName + ".NDX"))
+        if (File.Exists(fileName + "NDX"))
         {
           tableType = DbfTableType.DBase3;
         }
-        else if (File.Exists(fileName + ".NTX"))
+        else if (File.Exists(fileName + "NTX"))
         {
           tableType = DbfTableType.Clipper;
         }
@@ -909,10 +912,10 @@ namespace NDbfReaderEx
       switch (this.tableType)
       {
         case DbfTableType.Clipper:  
-          fileName += ".NTX";
+          fileName += "NTX";
           break;                                   
         case DbfTableType.DBase3:
-          fileName += ".NDX";
+          fileName += "NDX";
           break;
         case DbfTableType.Undefined:
           throw ExceptionFactory.CreateArgumentException("tableType", "Don't be known the format of the memory file!");

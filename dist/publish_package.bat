@@ -1,4 +1,4 @@
 ﻿
-..\.nuget\NuGet Push     NDbfReaderEx.1.1.0.0.nupkg
+..\.nuget\NuGet Push     NDbfReaderEx.1.4.0.0.nupkg
 
 pause

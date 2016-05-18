@@ -51,13 +51,13 @@ namespace NDbfReaderEx
             line = String.Format("{0,5} rec: '", kp.recNo);
           }
 
-          line += _dbfTable.encoding.GetString(kp.key) + "'";
+          line += _dbfTable.parametersReadOnly.encoding.GetString(kp.key) + "'";
 
           list.Add(line);
         }
       }
 
-      File.WriteAllLines(@".\IndexPages.txt", list, _dbfTable.encoding);
+      File.WriteAllLines(@".\IndexPages.txt", list, _dbfTable.parametersReadOnly.encoding);
       #endif
     }
 

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -11,13 +12,18 @@ namespace NDbfReaderEx
   {
     #region variables/constants ---------------------------------------------------------------------------
 
-    private const int  codepageBytePosition   = 29;                     // http://www.dbf2002.com/dbf-file-format.html   "Code page mark"
-    private const int  firstFieldSubrecord    = 32;                     // http://www.dbf2002.com/dbf-file-format.html   "32 – n	: Field subrecords"
-    private const byte headerRecordTerminator = 0x0D;                   // http://www.dbf2002.com/dbf-file-format.html   "n+1: Header record terminator (0x0D)"
-    private const int  maxColumnCount         = 1024;                   // I extend it for myself: original 255  http://msdn.microsoft.com/en-us/library/3kfd3hw9(v=vs.80).aspx
-    private const int  minDbfFileLength       = 32 + 32 + 1;            // http://www.dbf2002.com/dbf-file-format.html   (header info + 1 filed + headerRecordTerminator)
-    private const byte endOfFileTerminator    = 0x1A; 
+    public static bool defaultOnlyDBase3Enabled = false;
+    public        bool onlyDBase3Enabled        = defaultOnlyDBase3Enabled;
 
+    private const int  codepageBytePosition     = 29;                     // http://www.dbf2002.com/dbf-file-format.html   "Code page mark"
+    private const int  firstFieldSubrecordVer3  = 32;                     // http://www.dbf2002.com/dbf-file-format.html   "32 – n	: Field subrecords"
+    private const int  firstFieldSubrecordVer4  = 68;                     // http://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm   "Field Descriptor Array (see 1.2)."
+    private const byte headerRecordTerminator   = 0x0D;                   // http://www.dbf2002.com/dbf-file-format.html   "n+1: Header record terminator (0x0D)"
+    private const int  maxColumnCount           = 1024;                   // I extend it for myself: original 255  http://msdn.microsoft.com/en-us/library/3kfd3hw9(v=vs.80).aspx   
+    private const byte endOfFileTerminator      = 0x1A; 
+
+    private const int  minDbfFileLengthVer3     = 32 + 32 + 1;            // http://www.dbf2002.com/dbf-file-format.html   (header info + 1 filed + headerRecordTerminator)
+    private const int  minDbfFileLengthVer4     = 68 + 48 + 1;            // http://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm    (header info + 1 filed + headerRecordTerminator)                   
     #endregion
 
     #region enums/constans ----------------------------------------------------------------------------------
@@ -25,65 +31,115 @@ namespace NDbfReaderEx
     /// <summary>
     /// Valid codepage bytes by standard codepage names for DBF file.
     /// information have got from http://forums.esri.com/Thread.asp?c=93&f=1170&t=197185#587982
+    /// also added from           https://msdn.microsoft.com/en-us/library/8t45x02s(v=vs.80).aspx
+    /// also added from           http://shapelib.maptools.org/codepage.html
     /// </summary>
     public enum CodepageCodes : byte
     {
-      OEM     = 0x00,                                           // OEM = 0 
-      CP_437  = 0x01,                                           // Codepage_437_US_MSDOS = &H1 
-      CP_850  = 0x02,                                           // Codepage_850_International_MSDOS = &H2 
-      CP_1252 = 0x03,                                           // Codepage_1252_Windows_ANSI = &H3 
-      ANSI    = 0x57,                                           // ANSI = &H57 
-      CP_737  = 0x6A,                                           // Codepage_737_Greek_MSDOS = &H6A 
-      CP_852  = 0x64,                                           // Codepage_852_EasernEuropean_MSDOS = &H64 
-      CP_857  = 0x6B,                                           // Codepage_857_Turkish_MSDOS = &H6B 
-      CP_861  = 0x67,                                           // Codepage_861_Icelandic_MSDOS = &H67 
-      CP_865  = 0x66,                                           // Codepage_865_Nordic_MSDOS = &H66 
-      CP_866  = 0x65,                                           // Codepage_866_Russian_MSDOS = &H65 
-      CP_950  = 0x78,                                           // Codepage_950_Chinese_Windows = &H78 
-      CP_936  = 0x7A,                                           // Codepage_936_Chinese_Windows = &H7A 
-      CP_932  = 0x7B,                                           // Codepage_932_Japanese_Windows = &H7B 
-      CP_1255 = 0x7D,                                           // Codepage_1255_Hebrew_Windows = &H7D 
-      CP_1256 = 0x7E,                                           // Codepage_1256_Arabic_Windows = &H7E 
-      CP_1250 = 0xC8,                                           // Codepage_1250_Eastern_European_Windows = &HC8 
-      CP_1251 = 0xC9,                                           // Codepage_1251_Russian_Windows = &HC9 
-      CP_1254 = 0xCA,                                           // Codepage_1254_Turkish_Windows = &HCA 
-      CP_1253 = 0xCB                                            // Codepage_1253_Greek_Windows = &HCB 
+      OEM               = 0x00,                                           // OEM = 0 
+      CP_437            = 0x01,                                           // Codepage_437_US_MSDOS = &H1 
+      CP_850            = 0x02,                                           // Codepage_850_International_MSDOS = &H2 
+      CP_1252           = 0x03,                                           // Codepage_1252_Windows_ANSI = &H3 
+
+      CP_10000          = 0x04,                                           // Standard Macintosh
+
+      CP_865_Danish     = 0x08,		                                        // Danish OEM
+      CP_437_Dutch      = 0x09,		                                        // Dutch OEM
+      CP_850_Dutch      = 0x0A,		                                        // Dutch OEM*
+      CP_437_Finnish    = 0x0B,		                                        // Finnish OEM
+      CP_437_French     = 0x0D,		                                        // French OEM
+      CP_850_French     = 0x0E,		                                        // French OEM*
+      CP_437_German     = 0x0F,		                                        // German OEM
+      CP_850_German     = 0x10,		                                        // German OEM*
+      CP_437_Italian    = 0x11,		                                        // Italian OEM
+      CP_850_Italian    = 0x12,		                                        // Italian OEM*
+      CP_932_Japanese   = 0x13,		                                        // Japanese Shift-JIS
+      CP_850_Spanish    = 0x14,		                                        // Spanish OEM*
+      CP_437_Swedish    = 0x15,		                                        // Swedish OEM
+      CP_850_Swedish    = 0x16,		                                        // Swedish OEM*
+      CP_865_Norwegian  = 0x17,		                                        // Norwegian OEM
+      CP_437_Spanish    = 0x18,		                                        // Spanish OEM
+      CP_437_GB         = 0x19,		                                        // English OEM (Great Britain)
+      CP_850_GB         = 0x1A,		                                        // English OEM (Great Britain)*
+      CP_437_US         = 0x1B,		                                        // English OEM (US)
+      CP_863            = 0x1C,		                                        // French OEM (Canada)
+      CP_850_French2    = 0x1D,		                                        // French OEM*
+      CP_852_Czech      = 0x1F,		                                        // Czech OEM
+      CP_852_Hungarian  = 0x22,		                                        // Hungarian OEM
+      CP_852_Polish     = 0x23,		                                        // Polish OEM
+      CP_860            = 0x24,		                                        // Portuguese OEM
+      CP_850_Portuguese = 0x25,		                                        // Portuguese OEM*
+      CP_866_Russian    = 0x26,		                                        // Russian OEM
+      CP_850_US         = 0x37,		                                        // English OEM (US)*
+      CP_852_Romanian   = 0x40,		                                        // Romanian OEM
+      CP_936_Chinese    = 0x4D,		                                        // Chinese GBK (PRC)
+      CP_949_Korean     = 0x4E,		                                        // Korean (ANSI/OEM)
+      CP_950_Chinese    = 0x4F,		                                        // Chinese Big5 (Taiwan)
+      CP_874_Thai       = 0x50,	                                          // Thai (ANSI/OEM)
+
+      ANSI              = 0x57,                                           // ANSI = &H57  
+      
+      CP_1252_WestEu    =	0x58,		                                        // Western European ANSI
+	    CP_1252_Spanish   = 0x59,		                                        // Spanish ANSI
+           
+      CP_852            = 0x64,                                           // Codepage_852_EasernEuropean_MSDOS = &H64 
+      CP_866            = 0x65,                                           // Codepage_866_Russian_MSDOS = &H65 
+      CP_865            = 0x66,                                           // Codepage_865_Nordic_MSDOS = &H66 
+      CP_861            = 0x67,                                           // Codepage_861_Icelandic_MSDOS = &H67      
+      CP_895            = 0x68,                                           // Kamenicky (Czech) MS-DOS
+      CP_620            = 0x69,                                           // Mazovia (Polish) MS-DOS 
+      CP_737            = 0x6A,                                           // Codepage_737_Greek_MSDOS = &H6A 
+      CP_857            = 0x6B,                                           // Codepage_857_Turkish_MSDOS = &H6B  
+      
+      CP_863_Canadian   = 0x6C,        	                                  // French-Canadian MS-DOS
+           
+      CP_950            = 0x78,                                           // Codepage_950_Chinese_Windows = &H78 
+      CP_949            = 0x79,                                           // Korean Windows
+      CP_936            = 0x7A,                                           // Codepage_936_Chinese_Windows = &H7A 
+      CP_932            = 0x7B,                                           // Codepage_932_Japanese_Windows = &H7B 
+
+      CP_874            = 0x7C,                                           // Thai Windows
+
+      CP_1255           = 0x7D,                                           // Codepage_1255_Hebrew_Windows = &H7D 
+      CP_1256           = 0x7E,                                           // Codepage_1256_Arabic_Windows = &H7E 
+
+      CP_737_Greek      = 0x86,	                                          // Greek OEM
+  	  CP_852_Slovenian  = 0x87,	                                          // Slovenian OEM
+  	  CP_857_Turkish    = 0x88,	                                          // Turkish OEM
+       
+      CP_10007          = 0x96,                                           // Russian Macintosh
+      CP_10029          = 0x97,                                           // Macintosh EE
+      CP_10006          = 0x98,                                           // Greek Macintosh
+
+      CP_1250           = 0xC8,                                           // Codepage_1250_Eastern_European_Windows = &HC8 
+      CP_1251           = 0xC9,                                           // Codepage_1251_Russian_Windows = &HC9 
+      CP_1254           = 0xCA,                                           // Codepage_1254_Turkish_Windows = &HCA 
+      CP_1253           = 0xCB,                                           // Codepage_1253_Greek_Windows = &HCB 
+
+      CP_1257           = 0xCC	                                          // Baltic Windows
     };
 
-    internal struct CodepageCodes_Encoding
+    public static int GetEncodingCodePageFromCodepageCodes(CodepageCodes codepageCode)
     {
-      internal CodepageCodes code;
-      internal int           codepage;
-    };
+      string codepageName = codepageCode.ToString();
 
-    private static CodepageCodes_Encoding[] codepageCodes_Encodings;
+      if (codepageName.StartsWith("CP_"))
+      {
+        string[] nameParts = codepageName.Split('_');
 
-    private static void Initialize_CodepageCodes_Encoding()
-    {
-      codepageCodes_Encodings = new CodepageCodes_Encoding[20];                 // !Warning: "Magic number" (equals as count of enum CodepageCodes items)
+        return int.Parse(nameParts[1]);;
+      }
 
-      codepageCodes_Encodings[0]  = new CodepageCodes_Encoding() { code = CodepageCodes.OEM,     codepage = 0    };
-      codepageCodes_Encodings[1]  = new CodepageCodes_Encoding() { code = CodepageCodes.CP_437,  codepage = 437  };
-      codepageCodes_Encodings[2]  = new CodepageCodes_Encoding() { code = CodepageCodes.CP_850,  codepage = 850  };
-      codepageCodes_Encodings[3]  = new CodepageCodes_Encoding() { code = CodepageCodes.CP_1252, codepage = 1252 };
-      codepageCodes_Encodings[4]  = new CodepageCodes_Encoding() { code = CodepageCodes.CP_737,  codepage = 737  };
-      codepageCodes_Encodings[5]  = new CodepageCodes_Encoding() { code = CodepageCodes.CP_852,  codepage = 852  };
-      codepageCodes_Encodings[6]  = new CodepageCodes_Encoding() { code = CodepageCodes.CP_857,  codepage = 857  };
-      codepageCodes_Encodings[7]  = new CodepageCodes_Encoding() { code = CodepageCodes.CP_861,  codepage = 861  };
-      codepageCodes_Encodings[8]  = new CodepageCodes_Encoding() { code = CodepageCodes.CP_865,  codepage = 865  };
-      codepageCodes_Encodings[9]  = new CodepageCodes_Encoding() { code = CodepageCodes.CP_866,  codepage = 866  };
-      codepageCodes_Encodings[10] = new CodepageCodes_Encoding() { code = CodepageCodes.CP_950,  codepage = 950  };
-      codepageCodes_Encodings[11] = new CodepageCodes_Encoding() { code = CodepageCodes.CP_936,  codepage = 936  };
-      codepageCodes_Encodings[12] = new CodepageCodes_Encoding() { code = CodepageCodes.CP_932,  codepage = 932  };
-      codepageCodes_Encodings[13] = new CodepageCodes_Encoding() { code = CodepageCodes.CP_1255, codepage = 1255 };
-      codepageCodes_Encodings[14] = new CodepageCodes_Encoding() { code = CodepageCodes.CP_1256, codepage = 1256 };
-      codepageCodes_Encodings[15] = new CodepageCodes_Encoding() { code = CodepageCodes.CP_1250, codepage = 1250 };
-      codepageCodes_Encodings[16] = new CodepageCodes_Encoding() { code = CodepageCodes.CP_1251, codepage = 1251 };
-      codepageCodes_Encodings[17] = new CodepageCodes_Encoding() { code = CodepageCodes.CP_1254, codepage = 1254 };
-      codepageCodes_Encodings[18] = new CodepageCodes_Encoding() { code = CodepageCodes.CP_1253, codepage = 1253 };
-      codepageCodes_Encodings[19] = new CodepageCodes_Encoding() { code = CodepageCodes.ANSI,    codepage = 0    };      
+      switch (codepageCode)
+      { // Name isn't started "CP_"
+        case CodepageCodes.OEM:
+          return CultureInfo.CurrentCulture.TextInfo.OEMCodePage;           
+        case CodepageCodes.ANSI:
+          return CultureInfo.CurrentCulture.TextInfo.ANSICodePage;          
+      }
+
+      return int.MinValue;
     }
-
 
     /// <summary>
     /// http://www.dbf2002.com/dbf-file-format.html
@@ -92,13 +148,14 @@ namespace NDbfReaderEx
     {
       FoxBASE       = 0x02,                                     // FoxBASE
       DBase3        = 0x03,                                     // FoxBASE+/Dbase III plus, no memo
-      BDE           = 0x04,                                     // Borland Database Engine *** NEW found *** added by eMeL
+      DBase7        = 0x04,                                     // NEW *** added by eMeL
       VisualFoxPro  = 0x30,                                     // Visual FoxPro
       VisualFoxPro2 = 0x31,                                     // Visual FoxPro, autoincrement enabled
       VisualFoxPro3 = 0x32,                                     // Visual FoxPro with field type Varchar or Varbinary
       DBase4Sql     = 0x43,                                     // dBASE IV SQL table files, no memo
       DBase4SqlSys  = 0x63,                                     // dBASE IV SQL system files, no memo
       DBase3M       = 0x83,                                     // FoxBASE+/dBASE III PLUS, with memo
+      DBase7M       = 0x84,                                     // NEW *** added by eMeL / with memo
       DBase4M       = 0x8B,                                     // dBASE IV with memo
       DBase4SqlM    = 0xCB,                                     // dBASE IV SQL table files, with memo
       FoxPro2M      = 0xF5,                                     // FoxPro 2.x (or earlier) with memo
@@ -109,25 +166,38 @@ namespace NDbfReaderEx
 
     #region ReadDbfHeader_* ---------------------------------------------------------------------------------
 
-    public static DbfHeader ReadDbfHeader(Stream stream)
+    public static DbfHeader ReadDbfHeader(Stream stream, bool? onlyDBase3Enabled = null)
     {
       DbfHeader header;
 
       stream.Position = 0;                                                      // start from first byte
 
-      if (stream.Length < minDbfFileLength)
+      if (stream.Length < minDbfFileLengthVer3)
       {
-        throw new IOException("Not a DBF file! ('DBF File length' is too short!)");
+        throw new IOException("Not a DBF file! ('DBF File length' is too short!) [< " + minDbfFileLengthVer3 + "]");
       }
 
       BinaryReader reader = new BinaryReader(stream);                           // don't use using '(BinaryReader reader...' because 'using' dispose 'stream' too!
       {        
         header.type = (DbfFileTypes)(reader.ReadByte());                        // pos: 0          -- DBF File type: 
 
-        if (Array.IndexOf(Enum.GetValues(typeof(DbfFileTypes)), header.type) < 0)
+        if (! DbfHeader.HasNewHeaderStructure(header.type))
         {
-          throw new IOException("Not a DBF file! ('DBF File type' is not valid!)");
-        }      
+          if (Array.IndexOf(Enum.GetValues(typeof(DbfFileTypes)), header.type) < 0)
+          {
+            if (onlyDBase3Enabled ?? defaultOnlyDBase3Enabled)
+            {
+              throw new IOException("Not a DBF file! ('DBF File type' is not valid!) [dBase3]");
+            }
+          }
+        }
+
+        int minDbfFileLength = DbfHeader.HasNewHeaderStructure(header.type) ? minDbfFileLengthVer4 : minDbfFileLengthVer3;
+        
+        if (stream.Length < minDbfFileLength)
+        {
+          throw new IOException("Not a DBF file! ('DBF File length' is too short!) [< " + minDbfFileLength + "]");
+        }  
         
         //
 
@@ -159,17 +229,36 @@ namespace NDbfReaderEx
 
         header.recCount            = reader.ReadInt32();
         header.firstRecordPosition = reader.ReadInt16();
-        header.rowLength             = reader.ReadInt16();
+        header.rowLength           = reader.ReadInt16();
 
         if (header.recCount < 0)                
         {
           throw new IOException("Not a DBF file! (Number of records in file error!)");
         }
 
-        if ((header.firstRecordPosition < 65) || (header.firstRecordPosition > (32 + (32 * maxColumnCount) + 1 + 2 + 264)) ||
-            (header.firstRecordPosition >= stream.Length))                    // !WARNING: I don't know valid limit
+        //
+
+        if (DbfHeader.HasNewHeaderStructure(header.type))
         {
-          throw new IOException("Not a DBF file! (firstRecordPosition)");
+          int maxLengthOfFieldPropertiesStructure;  // it's too complex, we use only a fabricated number. http://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm
+
+          maxLengthOfFieldPropertiesStructure = 64 * 1024;
+
+          if ((header.firstRecordPosition < minDbfFileLengthVer4) || 
+              (header.firstRecordPosition > (68 + (48 * maxColumnCount) + 1 + maxLengthOfFieldPropertiesStructure)) ||
+              (header.firstRecordPosition > stream.Length))                     // !WARNING: I don't know valid limit
+          {
+            throw new IOException("Not a DBF file! (firstRecordPosition) [dBase4-7]");
+          }
+        }
+        else
+        {
+          if ((header.firstRecordPosition < minDbfFileLengthVer3) || 
+              (header.firstRecordPosition > (32 + (32 * maxColumnCount) + 1 + 2 + 264)) ||
+              (header.firstRecordPosition > stream.Length))                     // !WARNING: I don't know valid limit
+          {
+            throw new IOException("Not a DBF file! (firstRecordPosition) [dBase3]");
+          }
         }
 
         //
@@ -189,12 +278,10 @@ namespace NDbfReaderEx
 
     public static Encoding ReadDbfHeader_Encoding(CodepageCodes code, bool throwException = false)
     {
-      int codepage = (from cpi in codepageCodes_Encodings
-                      where cpi.code == code
-                      select cpi.codepage).FirstOrDefault();
-
-      if (codepage == 0)
-      { // not found or stored by 0
+      int codepage = GetEncodingCodePageFromCodepageCodes(code);
+        
+      if (codepage < 0)
+      { // not found  
         if (throwException)
         {
           throw new Exception(String.Format("ReadDbfHeader_Encoding(): '{0}' codepage code invalid!", code));
@@ -208,17 +295,17 @@ namespace NDbfReaderEx
       return Encoding.GetEncoding(codepage);
     }
 
-    public static IColumn[] ReadDbfColumns(Stream stream, Encoding encoding)
+    public static IColumn[] ReadDbfColumns(Stream stream, Encoding encoding, bool newHeaderStructure, bool openMemo)
     {
       List<IColumn> columns = new List<IColumn>();
 
-      stream.Position = firstFieldSubrecord;
+      stream.Position = newHeaderStructure ? firstFieldSubrecordVer4 : firstFieldSubrecordVer3;
 
       int calcOffset = 0;
 
       for (int i = 0; (i < maxColumnCount); i++)
       {
-        IColumn column = GetNextColumnDefinition(stream, encoding, calcOffset);
+        IColumn column = GetNextColumnDefinition(stream, encoding, calcOffset, newHeaderStructure);
 
         if (column == null)
         { // No more column definition
@@ -226,7 +313,18 @@ namespace NDbfReaderEx
         }
         else
         { // Store column definition
-          columns.Add(column);
+          if (column.dbfType == NativeColumnType.Memo)
+          {
+            if (openMemo)
+            {
+              columns.Add(column);
+            }
+          }
+          else
+          {
+            columns.Add(column);
+          }
+          
           calcOffset += column.size;
         }
       }
@@ -239,18 +337,20 @@ namespace NDbfReaderEx
       return columns.ToArray();                                                            
     }
 
-    private static Column GetNextColumnDefinition(Stream stream, Encoding encoding, int calcOffset)
+    private static Column GetNextColumnDefinition(Stream stream, Encoding encoding, int calcOffset, bool newHeaderStructure)
     { // If there isn't more column definition return null.
       string            columnName;
       NativeColumnType  columnType;
-      int               columnOffset;                                           // isn't stored by dBase/Clipper, must calculate by 'calcOffset'
+      int               columnOffset;                                           // isn't stored by dBase3/Clipper, must calculate by 'calcOffset'
       short             columnSize;
       short             columnDec;
 
       //
 
-      byte[] buffer = new byte[11];                                             // http://www.dbf2002.com/dbf-file-format.html "Field name with a maximum of 10 characters. If less than 10, it is padded with null characters (0x00)."
-
+      int    bufferLen = newHeaderStructure ? 32 : 11;                          // http://www.dbf2002.com/dbf-file-format.html "Field name with a maximum of 10 characters. If less than 10, it is padded with null characters (0x00)."
+                                                                                // http://www.dbase.com/Knowledgebase/INT/db7_file_fmt.htm  
+      byte[] buffer = new byte[bufferLen]; 
+                            
       int readed = stream.Read(buffer, 0, buffer.Length);
 
       if ((readed > 0) && (buffer[0] == headerRecordTerminator))
@@ -258,17 +358,18 @@ namespace NDbfReaderEx
         return null;                                                            // there isn't more column definition record
       }   
 
+
       if (readed != buffer.Length)
       {
         throw new Exception("DBF file format error! (don't found 'Header record terminator' (0x0D)!)");
       }
 
       { // http://www.dbf2002.com/dbf-file-format.html "If less than 10, it is padded with null characters (0x00)." - NO! It can contains garbage bytes after 0x00! 
-        int nameLen = buffer.Length;
+        int nameLen = newHeaderStructure ? 32 : 10;
 
-        for (int i = 0; (i < buffer.Length); i++)
+        for (int i = 0; (i < nameLen); i++)
         {
-          if ((buffer[i] == 0x00) || (buffer[i] == 0x20))                                     // name is closed and/or trimmed blanks
+          if ((buffer[i] == 0x00) || (buffer[i] == 0x20))                                     // name is closed and/or trimmed blanks (can closed with blank in real world)
           {
             nameLen = i;
             break;
@@ -287,12 +388,24 @@ namespace NDbfReaderEx
 
       BinaryReader reader = new BinaryReader(stream);                                 // don't use 'using (BinaryReader reader...' because 'using' dispose 'stream' too.
 
-      columnType   = (NativeColumnType)reader.ReadByte();                                                 
-      columnOffset = reader.ReadInt32();
-      columnSize   = reader.ReadByte();
-      columnDec    = reader.ReadByte();
-        
-      reader.ReadBytes(14);                                                           // skip don't used and reserved caharacters
+      if (newHeaderStructure)
+      {
+        columnType = (NativeColumnType)reader.ReadByte();
+        columnSize = reader.ReadByte();
+        columnDec  = reader.ReadByte();
+
+        reader.ReadBytes(13); 
+      }
+      else
+      {
+        columnType = (NativeColumnType)reader.ReadByte();
+        columnOffset = reader.ReadInt32();                                              // fake in dBase3 header
+        columnSize = reader.ReadByte();
+        columnDec = reader.ReadByte();
+
+        reader.ReadBytes(14);                                                           // skip don't used and reserved caharacters
+      }
+
       reader = null;
 
       //
@@ -529,13 +642,26 @@ namespace NDbfReaderEx
                                          CodepageCodes codepageCode = CodepageCodes.OEM,
                                          Encoding encoding = null)
     {
-      switch (tableType)
+      if (tableType == DbfTableType.Undefined)
+      { // Crawling columns definition and choose one
+        // TODO:!!!
+        // tableType = *****;
+      }
+
+      var par = new DbfTableParameters(encoding, true, StrictHeader.full, tableType, null, null);
+
+      //    
+
+      switch (par.tableTypeMainGroup)
       {
-        case DbfTableType.Clipper:
-        case DbfTableType.DBase3:
-        case DbfTableType.Undefined:
-          CreateHeader_dBase3(stream, columns, tableType, codepageCode);
+        case DbfTableType.DBF_Ver3:
+        case DbfTableType.DBF_Ver4:
+        case DbfTableType.DBF_Ver7:
+          CreateHeader_dBase(stream, columns, par.tableType, codepageCode);
           break;
+
+        case DbfTableType.Undefined:
+          throw ExceptionFactory.CreateArgumentException("tableType", "Undefined table type for CreateHeader_DBF() !");
         default:
           throw ExceptionFactory.CreateArgumentException("tableType", "Invalid table type for CreateHeader_DBF() !");
       }
@@ -550,14 +676,12 @@ namespace NDbfReaderEx
       }
       
 
-      DbfTable ret = new DbfTable(stream, encoding);
-
-      ret.tableType = tableType;
+      DbfTable ret = new DbfTable(stream, par);
 
       return ret;
     }
 
-    private static void CreateHeader_dBase3(Stream stream, IEnumerable<IColumnBase> columns, 
+    private static void CreateHeader_dBase(Stream stream, IEnumerable<IColumnBase> columns, 
                                             DbfTableType tableType     = DbfTableType.Undefined,
                                             CodepageCodes codepageCode = CodepageCodes.OEM)
     {
@@ -590,14 +714,36 @@ namespace NDbfReaderEx
         throw ExceptionFactory.CreateArgumentException("columns", "Header definition is empty!");
       }
 
-      DbfFileTypes dbfFileType = DbfFileTypes.DBase3;
+      //
+
+      bool headerVer7;
+
+      switch (DbfTableParameters.GetTableTypeMainGroup(tableType))
+      {
+        case DbfTableType.DBF_Ver3:
+        case DbfTableType.DBF_Ver4:
+          headerVer7 = false;
+          break;
+
+        case DbfTableType.DBF_Ver7:
+          headerVer7 = true;
+          break;
+
+        default:
+          throw ExceptionFactory.CreateArgumentException("tableType", "Invalid dbf type! [" + tableType + "]");
+      }
+
+      //
+
+      DbfFileTypes dbfFileType = headerVer7 ? DbfFileTypes.DBase7 : DbfFileTypes.DBase3;
+
       short        lengthOfDataRecords = 1;                                         // 1 for 'delete flag'
 
       foreach (IColumnBase col in columnDefs)
       {
         if (col.dbfType == NativeColumnType.Memo)
         {
-          dbfFileType = DbfFileTypes.DBase3M;
+          dbfFileType = headerVer7 ? DbfFileTypes.DBase7M : DbfFileTypes.DBase3M;
         }
 
         lengthOfDataRecords += col.size;      
@@ -605,7 +751,16 @@ namespace NDbfReaderEx
 
       //
 
-      short positionOfFirstDataRecord = (short)(32 + (columnDefs.Count * 32) + 1);                 
+      short positionOfFirstDataRecord;  
+      
+      if (headerVer7)
+      {
+        throw new NotImplementedException();    // TODO: !!!
+      }
+      else
+      {
+        positionOfFirstDataRecord = (short)(32 + (columnDefs.Count * 32) + 1); 
+      }
 
       //
 
@@ -656,39 +811,69 @@ namespace NDbfReaderEx
 
       //
 
-      if (tableType == DbfTableType.Clipper)
+      if (tableType == DbfTableType.DBF_Ver3_Clipper)
       {
         writer.Write((byte)0x00);                                               // Optional: Extra byte for Clipper (only after header) befor EOF
       }
       
       writer.Write(endOfFileTerminator);
     }
-    
-
-
-    private static Stream CreateHeader_Memo(string dbfFileName, DbfTableType tableType = DbfTableType.Undefined)
+        
+    private static Stream CreateHeader_Memo(string dbfFileName, MemoFileType memoType)
     {
-      switch (tableType)
+      switch (memoType)
       {
-        case DbfTableType.Clipper:
-        case DbfTableType.DBase3:
-        case DbfTableType.Undefined:         
-          return CreateHeader_MemoDBT(dbfFileName);
+        case MemoFileType.DBT_Ver3:
+        case MemoFileType.DBT_Ver4:
+          return CreateHeader_MemoDBT(dbfFileName, memoType);
+
+        case MemoFileType.Undefined:         
+          throw ExceptionFactory.CreateArgumentException("memoType", "Undefined memo type for CreateHeader_Memo() !");
 
         default:
-          throw ExceptionFactory.CreateArgumentException("tableType", "Invalid table type for CreateHeader_Memo() !");
+          throw ExceptionFactory.CreateArgumentException("memoType", "Invalid memo type for CreateHeader_Memo() !");
       }
     }
 
-    private static Stream CreateHeader_MemoDBT(string dbfFileName)
+    private static Stream CreateHeader_MemoDBT(string dbfFileName, MemoFileType memoFileType, int memoBlockSize = 0)
     {      
       string dbtFileName = Path.Combine(Path.GetDirectoryName(dbfFileName), Path.GetFileNameWithoutExtension(dbfFileName) + ".dbt");
       
+      if (memoBlockSize < 1)
+      { // Set default
+        memoBlockSize = 512;
+      }
+
+      switch (memoFileType)
+      {
+        case MemoFileType.Undefined:
+          throw new Exception("CreateHeader_MemoDBT: Don't know MemoFileType parameter value !");
+        case MemoFileType.DBT_Ver3:
+          if (memoBlockSize != 512)
+          {
+            throw new Exception("CreateHeader_MemoDBT: DBT version 3 and (memoBlockSize != 512) !");
+          }
+          break;
+        case MemoFileType.DBT_Ver4:
+          if ((memoBlockSize < 64) || (memoBlockSize < 32 * 1024))
+          {
+            throw new Exception("CreateHeader_MemoDBT(" + memoBlockSize + "): DBT version 4 - valid memoBlockSize values are 64..32768 !");
+          }
+
+          if ((memoBlockSize % 64) != 0)
+          {
+            throw new Exception("CreateHeader_MemoDBT(" + memoBlockSize + "): DBT version 4 - valid memoBlockSize is a multiple of 64 !");
+          }
+          break;
+        default:
+          throw new Exception("CreateHeader_MemoDBT: Don't handle MemoFileType parameter value !");
+      }
+
       Stream stream = new FileStream(dbtFileName, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
       
       {
         //stream.SetLength(512);                                                // Header block / If the stream is expanded, the contents of the stream between the old and the new length are not defined.
-        byte[] headerBlock = new byte[MemoFileDBT.blockSize];                   // Header block is filled with zero  
+        byte[] headerBlock = new byte[memoBlockSize];                           // Header block is filled with zero  
 
         stream.Write(headerBlock, 0, headerBlock.Length);
       }
@@ -698,8 +883,29 @@ namespace NDbfReaderEx
       BinaryWriter writer = new BinaryWriter(stream);                           // don't use 'using (BinaryWriter writer...' because 'using' dispose 'stream' too!
 
       writer.Write((Int32)1);                                                   // "Number of next available block for appending data"  http://www.clicketyclick.dk/databases/xbase/format/dbt.html#DBT_STRUCT
-      writer.BaseStream.Position = 16;                                          // position of "Version no."                            --''--
-      writer.Write((byte)0x03);                                                 // "Version no.  (03h)"                                 --''--
+
+      switch (memoFileType)
+      {
+        case MemoFileType.DBT_Ver3:
+          writer.BaseStream.Position = 16;                                      // position of "Version no."                            --''--
+          writer.Write((byte)0x03);  
+          break;
+
+        case MemoFileType.DBT_Ver4:
+          writer.BaseStream.Position = 8;                                       // position of "filename"                            --''--
+          {
+            string fileName  = Path.GetFileNameWithoutExtension(dbtFileName);
+            byte[] fileBytes = Encoding.Default.GetBytes(fileName);
+
+            writer.Write(fileBytes, 0, Math.Min(8, fileBytes.Length));
+          }
+          writer.BaseStream.Position = 16;                                      // position of "Version no."                            --''--
+          writer.Write((byte)0x00);  
+          break;
+      }
+      
+      writer.BaseStream.Position = 20;
+      writer.Write((Int16)memoBlockSize);                        
 
       return stream;
     }
@@ -707,35 +913,36 @@ namespace NDbfReaderEx
     #endregion
 
     #region MemoFile ----------------------------------------------------------------------------------------
-
-    public void JoinMemoStream(Stream fileStream, DbfTableType tableType)
+    
+    public void JoinMemoStream(Stream fileStream, MemoFileType memoType = MemoFileType.Undefined)
     {
-      StoreTableType(tableType);
-
-      //
-
-      //if (this.tableType == DbfTableType.Undefined)
-      //{ // Scan memo stream for detect type...
-      // ... there aren't any signature in DBT or FPT file we can't detect type of it.
-      //}
-
-      if ((this.tableType == DbfTableType.Undefined) && isDbtMemoFileForDbf())
+      if (memoType == MemoFileType.Undefined)
       {
-        this._memoFile = new MemoFileDBT(fileStream, this.encoding);
-      }
-      else
-      {
-        switch (this.tableType)
-        {
-          case DbfTableType.Clipper:
-          case DbfTableType.DBase3:
-            this._memoFile = new MemoFileDBT(fileStream, this.encoding);
-            break;
-          case DbfTableType.Undefined:
-            throw ExceptionFactory.CreateArgumentException("tableType", "Don't be known the format of the memory stream!");
-          default:
-            throw new NotImplementedException();
+        memoType = parameters.memoType;
+
+        if (memoType == MemoFileType.Undefined)
+        { // Scan memo stream for detect type...
+          // There aren't any signature in DBT or FPT file, so we can't detect type of it correctly.
+
+          memoType = DefaultMemoFileFormatForDbf();
         }
+      }
+
+      if (parameters.encoding == null)
+      {
+        parameters.encoding = ReadDbfHeader_Encoding(dbfHeader.codepageCode, true);
+      }
+
+      switch (memoType)
+      {
+        case MemoFileType.DBT_Ver3:
+        case MemoFileType.DBT_Ver4:
+          this._memoFile = new MemoFileDBT(fileStream, parameters.encoding, memoType, parameters.strictHeader);
+          break;
+        case MemoFileType.Undefined:
+          throw ExceptionFactory.CreateArgumentException("memoType", "There isn't information of format of the memory stream!");
+        default:
+          throw new NotImplementedException();
       }
 
       //
@@ -756,70 +963,60 @@ namespace NDbfReaderEx
 
     private void JoinMemoFile()
     {
-      this.fileNameMemo = null;
-
-      string fileName = Path.Combine(Path.GetDirectoryName(this.fileNameDBF), Path.GetFileNameWithoutExtension(this.fileNameDBF) + ".");
-
-      switch (this.tableType)
+      if (! this.isExistsMemoField)
       {
-        case DbfTableType.Clipper:                                                         
-        case DbfTableType.DBase3:
-          fileName += "dbt";
-          break;
-        
-        case DbfTableType.Undefined:
-          if (isDbtMemoFileForDbf())
-          {
-            fileName += "dbt";
-          }
-          else if (File.Exists(fileName + "dbt"))
-          {
-            fileName += "dbt";
-          }
-          else
-          {
-            fileName = null;                      
-          }
-          break;
+        Trace.TraceWarning("DbfTable/JoinMemoFile/! isExistsMemoField");
+        return;
+      }
+
+      if (! parameters.openMemo)
+      {
+        Trace.TraceWarning("DbfTable/JoinMemoFile/! openMemo");
+        return;
       }
 
 
-      if (String.IsNullOrWhiteSpace(fileName))
+      if (parameters.memoType == MemoFileType.Undefined)
+      {
+        parameters.memoType = DefaultMemoFileFormatForDbf();                          // calculate this from DBF header data
+      }   
+
+      switch (parameters.memoType)
+      {
+        case MemoFileType.Undefined:
+          {
+            string testFilename = Path.ChangeExtension(dataFileName, ".DBT");
+
+            if (File.Exists(testFilename))
+            {
+              memoFileName = testFilename; 
+            }
+          }
+          break;
+
+        case MemoFileType.DBT_Ver3:
+        case MemoFileType.DBT_Ver4:
+          memoFileName = Path.ChangeExtension(dataFileName, ".DBT");
+          break;
+
+        default:
+          throw new Exception(String.Format("JoinMemoFile(): untreated MemoFileType! [{0}]", parameters.memoType));
+      }      
+
+
+      if (String.IsNullOrWhiteSpace(memoFileName))
       {      
-        throw new Exception(String.Format("Don't be known the format or name of the memo/blob file for '{0}' DBF file!", this.fileNameDBF));
+        throw new Exception(String.Format("Don't be known the format or name of the memo/blob file for '{0}' DBF file!", this.dataFileName));
       }
-      else if (File.Exists(fileName))
+      else if (File.Exists(memoFileName))
       {
-        this.fileNameMemo = fileName;
+        var stream = new FileStream(memoFileName, FileMode.Open, parameters.fileAccess, parameters.fileShare);
 
-        FileAccess access;
-        FileShare share;
-
-        switch (openMode)
-        {
-          case DbfTableOpenMode.Exclusive:
-            access = FileAccess.ReadWrite;
-            share = FileShare.None;
-            break;
-          case DbfTableOpenMode.ReadWrite:
-            access = FileAccess.ReadWrite;
-            share = FileShare.ReadWrite;
-            break;
-          case DbfTableOpenMode.Read:
-            access = FileAccess.Read;
-            share = FileShare.ReadWrite;
-            break;
-          default:
-            throw ExceptionFactory.CreateArgumentException("JoinMemoFile/Open(Openmode)", "Invalid open mode parameter!");
-        }
-
-        var stream = new FileStream(fileName, FileMode.Open, access, share);
-
-        JoinMemoStream(stream, this.tableType);
+        JoinMemoStream(stream, parameters.memoType);
       }
       else
       {
-        throw new Exception(String.Format("Don't found the '{0}' memo/blob file for '{1}' DBF file!", fileName, this.fileNameDBF));
+        throw new Exception(String.Format("Don't found the '{0}' memo/blob file for '{1}' DBF file!", memoFileName, this.dataFileName));
       }
     }
 
@@ -828,26 +1025,27 @@ namespace NDbfReaderEx
     #region IndexFile ----------------------------------------------------------------------------------------
 
     [CLSCompliant(false)]
-    public IIndexFile JoinIndexStream(Stream fileStream, bool? skipDeleted = null, DbfTableType tableType = DbfTableType.Undefined)
+    public IIndexFile JoinIndexStream(Stream fileStream, bool? skipDeleted = null, IndexFileType indexType = IndexFileType.Undefined)
     {
-      StoreTableType(tableType);
-
-      //
-
       IndexFileBase indexFile = null;
 
-      switch (this.tableType)
+      if (indexType == IndexFileType.Undefined)
       {
-        case DbfTableType.Clipper:  
+        indexType = parameters.indexType;
+      }
+  
+      switch (indexType)
+      {
+        case IndexFileType.NTX:  
           indexFile = new IndexFileNTX(fileStream, this, skipDeleted ?? this.skipDeleted);
           break;                                             
-        case DbfTableType.DBase3:
+        case IndexFileType.NDX:
           indexFile = new IndexFileNDX(fileStream, this, skipDeleted ?? this.skipDeleted);
           break;
-        case DbfTableType.Undefined:
-          throw ExceptionFactory.CreateArgumentException("tableType", "Don't be known the format of the index stream!");
+        case IndexFileType.Undefined:
+          throw new Exception("JoinIndexStream(): Don't known the format of the index stream!");
         default:
-          throw new NotImplementedException();
+          throw new Exception("JoinIndexStream(): Don't handle the format of the index stream!");
       }
 
       if (this._indexFiles == null)
@@ -861,95 +1059,99 @@ namespace NDbfReaderEx
     }
 
     [CLSCompliant(false)]
-    public IIndexFile JoinIndexFile(char? separatorChar, string indexFileID, bool? skipDeleted = null, DbfTableType tableType = DbfTableType.Undefined)
+    public IIndexFile JoinIndexFile(IndexFileType indexType, string indexFileID = null, bool? skipDeleted = null)
     {
-      string fileName = Path.Combine(Path.GetDirectoryName(this.fileNameDBF), Path.GetFileNameWithoutExtension(this.fileNameDBF));
+      return JoinIndexFile(indexType, null, indexFileID, skipDeleted);
+    }
+
+    [CLSCompliant(false)]
+    public IIndexFile JoinIndexFile(IndexFileType indexType = IndexFileType.Undefined, char? separatorChar = null, string indexFileID = null, bool? skipDeleted = null)
+    {
+      string fileName = Path.Combine(Path.GetDirectoryName(this.dataFileName), Path.GetFileNameWithoutExtension(this.dataFileName));
 
       if (separatorChar != null)
       {
         fileName += separatorChar; 
       }
 
-      fileName += indexFileID;
+      if (! String.IsNullOrWhiteSpace(indexFileID))
+      {
+        fileName += indexFileID;
+      }
 
-      return JoinIndexFile(fileName, skipDeleted, tableType);
+      if (indexType == IndexFileType.Undefined)
+      {
+        indexType = parameters.indexType;
+      }     
+
+      switch (indexType)
+      {
+        case IndexFileType.Undefined:
+          throw new Exception("JoinIndexFile(): IndexFileType.Undefined parameter!");
+        case IndexFileType.NDX:
+          fileName += ".ndx";
+          break;
+        case IndexFileType.NTX:
+          fileName += ".ntx";
+          break;
+        default:
+          throw new Exception("JoinIndexFile(" + indexType + "): Don't handled parameter value !");
+      }
+
+      return JoinIndexFile(fileName, skipDeleted);
     }
 
     [CLSCompliant(false)]
-    public IIndexFile JoinIndexFile(string indexFileName, bool? skipDeleted = null, DbfTableType tableType = DbfTableType.Undefined)
+    public IIndexFile JoinIndexFile(string indexFileName, bool? skipDeleted = null)
     {
-      StoreTableType(tableType);
-
       string fileName = Path.Combine(Path.GetDirectoryName(indexFileName), Path.GetFileNameWithoutExtension(indexFileName) + ".");
       string fileExt  = Path.GetExtension(indexFileName);
 
+      IndexFileType indexType = parameters.indexType;
+
       if (fileExt.ToUpper() == ".NDX")
       {
-        tableType = DbfTableType.DBase3;
+        indexType = IndexFileType.NDX;
       }
       else if (fileExt.ToUpper() == ".NTX")
       {
-        tableType = DbfTableType.Clipper;
+        indexType = IndexFileType.NTX;
       }
       // .... others too
-      else if (this.tableType == DbfTableType.Undefined)
+      else if (indexType == IndexFileType.Undefined)
       { // Scan extension of files for detect type...
         if (File.Exists(fileName + "NDX"))
         {
-          tableType = DbfTableType.DBase3;
+          indexType = IndexFileType.NDX;
         }
         else if (File.Exists(fileName + "NTX"))
         {
-          tableType = DbfTableType.Clipper;
+          indexType = IndexFileType.NTX;
         }
         // .... others too
       }
 
-      StoreTableType(tableType);                                        // Exception if not identical
 
-      //
-
-      switch (this.tableType)
+      switch (indexType)
       {
-        case DbfTableType.Clipper:  
+        case IndexFileType.NTX:  
           fileName += "NTX";
           break;                                   
-        case DbfTableType.DBase3:
+        case IndexFileType.NDX:
           fileName += "NDX";
           break;
-        case DbfTableType.Undefined:
-          throw ExceptionFactory.CreateArgumentException("tableType", "Don't be known the format of the memory file!");
+        case IndexFileType.Undefined:
+          throw new Exception("JoinIndexFile(): Don't know the format of index file!");
         default:
-          throw new NotImplementedException();
+          throw new Exception("JoinIndexFile(): Don't handle the format of index file!");
       }
 
 
       if (File.Exists(fileName))
       {
-        FileAccess access;
-        FileShare share;
+        var stream = new FileStream(fileName, FileMode.Open, parameters.fileAccess, parameters.fileShare);
 
-        switch (openMode)
-        {
-          case DbfTableOpenMode.Exclusive:
-            access = FileAccess.ReadWrite;
-            share = FileShare.None;
-            break;
-          case DbfTableOpenMode.ReadWrite:
-            access = FileAccess.ReadWrite;
-            share = FileShare.ReadWrite;
-            break;
-          case DbfTableOpenMode.Read:
-            access = FileAccess.Read;
-            share = FileShare.ReadWrite;
-            break;
-          default:
-            throw ExceptionFactory.CreateArgumentException("JoinMemoFile/Open(Openmode)", "Invalid open mode parameter!");
-        }
-
-        var stream = new FileStream(fileName, FileMode.Open, access, share);
-
-        return JoinIndexStream(stream, skipDeleted, this.tableType);
+        return JoinIndexStream(stream, skipDeleted, indexType);
       }
       else
       {
@@ -961,17 +1163,17 @@ namespace NDbfReaderEx
 
     #region technical ---------------------------------------------------------------------------------------
 
-    private string GetIndexExtension(DbfTableType tableType)
+    private static string GetIndexExtension(DbfTableType tableType)
     {
       string ret = null;
 
       switch (tableType)
       {
-        case DbfTableType.Clipper:
+        case DbfTableType.DBF_Ver3_Clipper:
           ret = ".ntx";
           break;
 
-        case DbfTableType.DBase3:
+        case DbfTableType.DBF_Ver3_dBase:
           ret = ".ndx";
           break;
 
@@ -990,40 +1192,83 @@ namespace NDbfReaderEx
 
     private void StoreTableType(DbfTableType tableType)
     {
-      if (this.tableType == DbfTableType.Undefined)
+      if (parameters.tableType == DbfTableType.Undefined)
       {
-        this.tableType = tableType; 
+        parameters.tableType = tableType; 
       }
       else if (tableType == DbfTableType.Undefined)
       { // Do nothing: Don't forget a better this.tableType value
       }
-      else if (this.tableType != tableType)
+      else if (parameters.tableType != tableType)
       {
         throw ExceptionFactory.CreateArgumentException("tableType", "Different dbf table type parameter value!");
       }
     }
 
-
-    private bool isDbtMemoFileForDbf()
+    public MemoFileType DefaultMemoFileFormatForDbf()
     {
-      bool ret = false;
+      MemoFileType ret = MemoFileType.Undefined;
 
-      switch (_header.type)
+      if (_header.newHeaderStructure)
       {
-        case DbfFileTypes.DBase3:                                                         // Clipper use these too.
-          ret = isExistsMemoField;
-          break;
-        case DbfFileTypes.DBase3M:
-          ret = true;
-          break;
-        default:
-          ret = false;
-          break;
+        if (isExistsMemoField)
+        {
+          ret = MemoFileType.DBT_Ver4;
+        }
+      }
+      else
+      {
+        switch (_header.type)
+        {
+          case DbfFileTypes.FoxBASE:
+            break;
+          case DbfFileTypes.DBase3:
+            if (isExistsMemoField)
+            {
+              ret = MemoFileType.DBT_Ver3;
+            }
+            break;
+          case DbfFileTypes.VisualFoxPro:
+            break;
+          case DbfFileTypes.VisualFoxPro2:
+            break;
+          case DbfFileTypes.VisualFoxPro3:
+            break;
+          case DbfFileTypes.DBase4Sql:
+            if (isExistsMemoField)
+            {
+              ret = MemoFileType.DBT_Ver4;
+            }
+            break;
+          case DbfFileTypes.DBase4SqlSys:
+            if (isExistsMemoField)
+            {
+              ret = MemoFileType.DBT_Ver4;
+            }
+            break;
+          case DbfFileTypes.DBase3M:
+             ret = MemoFileType.DBT_Ver3;
+            break;
+          case DbfFileTypes.DBase4M:
+             ret = MemoFileType.DBT_Ver4;
+            break;
+          case DbfFileTypes.DBase4SqlM:
+             ret = MemoFileType.DBT_Ver4;
+            break;
+          case DbfFileTypes.FoxPro2M:
+            break;
+          case DbfFileTypes.HiperSix:
+            break;
+          case DbfFileTypes.FoxBASE2:
+            break;
+          default:
+            ret = MemoFileType.Undefined;
+            break;
+        }
       }
 
       return ret;
-    }
-   
+    }   
     #endregion  
   }
 }

@@ -25,6 +25,10 @@ using System.Text;
 // http://tmpvar.com/markdown.html   for prewiew of *.MD files :)
 // https://help.github.com/articles/github-flavored-markdown     -- help
 
+// ftp://fship.com/pub/multisoft/flagship/docu/dbfspecs.txt
+// http://www.zelczak.com/clipp_en.htm                                  --- NTX ctructure
+// http://shapelib.maptools.org/codepage.html
+
 namespace NDbfReaderEx
 {
   /// <summary>
@@ -42,158 +46,34 @@ namespace NDbfReaderEx
   {
     #region variables -------------------------------------------------------------------------------------
 
-    private  readonly Stream       _stream;
-    internal readonly IColumn[]    _columns;
-    private  readonly Encoding     _encoding;
+    private  readonly Stream        _stream;
+    internal readonly IColumn[]     _columns;
 
-    private           DbfHeader    _header;
-    public  readonly  Guid         dbfTableClassID = Guid.NewGuid();   
+    private           DbfHeader     _header;
+    public  readonly  Guid          dbfTableClassID = Guid.NewGuid();
 
     private           MemoFileBase  _memoFile;
 
     private           List<IndexFileBase> _indexFiles;
 
-    private           DbfTableType _tableType  = DbfTableType.Undefined; 
-    
     private           bool         _disposed   = false;
 
     public            bool         skipDeleted = true;                             // leave out deleted rows from result (Enumerate)
     public            bool         memoStreamCloseWhenDispose = true;              // detached rows can or can't read it after DbfTable closed.    
     #endregion
+   
+    private DbfTableParameters parameters;
 
+    public DbfTableParametersReadOnly parametersReadOnly
+    {
+      get
+      {
+        return parameters.GetReadOnly();
+      }
+    }
     #region Constructor ---------------------------------------------------------------------------------
 
-    protected DbfTable(Stream stream, Encoding encoding = null)
-    {
-      this._stream = stream;
-    
-      RefreshHeaderInfo();
-
-      //      
-
-      if (encoding == null)
-      {
-        encoding = ReadDbfHeader_Encoding(_header.codepageCode);
-
-        if (encoding == null)
-        {
-          throw new Exception("DbfTable: the DBF file don't contains codepage information!");
-        }
-      }
-
-      this._encoding = encoding;
-
-      this._columns  = ReadDbfColumns(_stream, this.encoding);                            // this.encoding: property, because return default is null
-
-      //
-
-      int calcLen = _header.firstRecordPosition + (_header.recCount * _header.rowLength) + 1;
-
-      if ((stream.Length < calcLen - 1) || (stream.Length > calcLen + 1))  
-      { // dBase & Clipper different (There is or there isn't a 0x1F character at end of DBF data file .
-        throw ExceptionFactory.CreateArgumentOutOfRangeException("DBF table", "Datafile length error! [got: {0} expected: {1}]", stream.Length, calcLen);
-      }      
-    }
-
-    static DbfTable()
-    {
-      Initialize_CodepageCodes_Encoding();
-    }
-    
-    #endregion
-
-    #region Dbf file control  -------------------------------------------------------------------------------
-
-    public void RefreshHeaderInfo()
-    {
-      _header = ReadDbfHeader(_stream);
-
-      return;
-    }
-
-    #endregion
-
-    #region Open/Create DBF table --------------------------------------------------------------------------
-
-    public static DbfTable Open(string path, DbfTableOpenMode openMode, Encoding encoding = null, DbfTableType tableType = DbfTableType.Undefined)
-    {
-      if (string.IsNullOrEmpty(path))
-      {
-        throw new ArgumentNullException("path");
-      }
-
-      FileAccess access;
-      FileShare  share;
-
-      switch (openMode)
-      {
-        case DbfTableOpenMode.Exclusive:
-          access = FileAccess.ReadWrite;
-          share  = FileShare.None;
-          break;
-        case DbfTableOpenMode.ReadWrite:
-          access = FileAccess.ReadWrite;
-          share  = FileShare.ReadWrite;
-          break;
-        case DbfTableOpenMode.Read:
-          access = FileAccess.Read;
-          share  = FileShare.ReadWrite;
-          break;
-        default:
-          throw ExceptionFactory.CreateArgumentException("DbfTable/Open(Openmode)", "Invalid open mode parameter!");
-      }
-
-      var dbfFile = Open(new FileStream(path, FileMode.Open, access, share), encoding);
-
-      dbfFile.fileNameDBF = path;
-      dbfFile.tableType   = tableType;
-      dbfFile.openMode    = openMode;
-
-      if (dbfFile.isExistsMemoField)
-      { // If exist a memo field and it is opened from a file, so I can find DBT/FPT/etc. memeo file too.
-        dbfFile.JoinMemoFile();
-      }
-
-      return dbfFile;
-    }
-
-    /// <summary>
-    /// Opens a table from the specified file.
-    /// </summary>
-    /// <param name="path">The file to be opened.</param>
-    /// <returns>A table instance.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="path"/> is <c>null</c> or empty.</exception>
-    /// <exception cref="NotSupportedException">The dBASE table constains one or more columns of unsupported type.</exception>
-    public static DbfTable Open(string path, Encoding encoding = null, DbfTableType tableType = DbfTableType.Undefined)
-    {
-      if (string.IsNullOrEmpty(path))
-      {
-        throw new ArgumentNullException("path");
-      }
-
-      var dbfFile = Open(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite), encoding);
-
-      dbfFile.fileNameDBF = path;
-      dbfFile.tableType   = tableType;
-      dbfFile.openMode    = DbfTableOpenMode.Read;
-
-      if (dbfFile.isExistsMemoField)
-      { // If exist a memo field and it is opened from a file, so I can find DBT/FPT/etc. memeo file too.
-        dbfFile.JoinMemoFile();
-      }
-
-      return dbfFile;
-    }    
-
-    /// <summary>
-    /// Opens a table from the specified stream.
-    /// </summary>
-    /// <param name="stream">The stream of dBASE table to open. The stream is closed when the returned table instance is disposed.</param>
-    /// <returns>A table instance.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="stream"/> is <c>null</c> or <paramref name="headerLoader"/> is <c>null</c>.</exception>
-    /// <exception cref="ArgumentException"><paramref name="stream"/> does not allow reading.</exception>
-    /// <exception cref="NotSupportedException">The dBASE table constains one or more columns of unsupported type.</exception>
-    public static DbfTable Open(Stream stream, Encoding encoding = null)
+    protected DbfTable(Stream stream, DbfTableParameters parameters)
     {
       if (stream == null)
       {
@@ -209,8 +89,109 @@ namespace NDbfReaderEx
       {
         throw ExceptionFactory.CreateArgumentException("stream", "The stream does not allow reading (CanSeek property returns false).");
       }
+
+      this._stream          = stream;
+      this.parameters       = parameters;
+    
+      RefreshHeaderInfo();
+
+      //      
+
+      if (this.parameters.encoding == null)
+      {
+        this.parameters.encoding = ReadDbfHeader_Encoding(_header.codepageCode);
+
+        if (this.parameters.encoding == null)
+        {
+          throw new Exception("DbfTable: the DBF file don't contains codepage information!");
+        }
+      }
+
+      this._columns  = ReadDbfColumns(_stream, this.parameters.encoding, _header.newHeaderStructure, this.parameters.openMemo);  
+
+      //
+
+      int calcLen = _header.firstRecordPosition + (_header.recCount * _header.rowLength) + 1;
+
+      if ((stream.Length < calcLen - 1) || (stream.Length > calcLen + 1))  
+      { // dBase & Clipper different (There is or there isn't a 0x1F character at end of DBF data file .
+        throw ExceptionFactory.CreateArgumentOutOfRangeException("DBF table", "Datafile length error! [got: {0} expected: {1}]", stream.Length, calcLen);
+      }      
+    }   
+    #endregion
+
+    #region Dbf file control  -------------------------------------------------------------------------------
+
+    public void RefreshHeaderInfo()
+    {
+      _header = ReadDbfHeader(_stream, this.onlyDBase3Enabled);
+
+      return;
+    }
+
+    #endregion
+
+    #region Open/Create DBF table --------------------------------------------------------------------------
+
+    public static DbfTable Open(string path, Encoding encoding = null, bool? openMemo = null, StrictHeader? strictHeader = null, DbfTableType tableType = DbfTableType.Undefined)
+    {
+      var parameters = new DbfTableParameters(encoding, openMemo, strictHeader, tableType);
+
+      return Open(path, parameters);
+    }
+
+    public static DbfTable Open(string path, DbfTableOpenMode openMode, Encoding encoding = null, bool? openMemo = null, StrictHeader? strictHeader = null, DbfTableType tableType = DbfTableType.Undefined)
+    {
+      DbfTableParameters parameters = new DbfTableParameters(openMode, encoding, openMemo, strictHeader, tableType);
+
+      return Open(path, parameters);
+    }
+
+    /// <summary>
+    /// Opens a table from the specified file.
+    /// </summary>
+    /// <param name="path">The file to be opened.</param>
+    /// <returns>A table instance.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="path"/> is <c>null</c> or empty.</exception>
+    /// <exception cref="NotSupportedException">The dBASE table constains one or more columns of unsupported type.</exception>
+    public static DbfTable Open(string path, DbfTableParameters parameters)
+    {
+      if (string.IsNullOrEmpty(path))
+      {
+        throw new ArgumentNullException("path");
+      }
+
+      var stream  = new FileStream(path, FileMode.Open, parameters.fileAccess, parameters.fileShare);
+      var dbfFile = new DbfTable(stream, parameters);
+
+      dbfFile.dataFileName = path;
+
+      if (dbfFile.isExistsMemoField && parameters.openMemo)
+      { // If exist a memo field and it is opened from a file, so I can find DBT/FPT/etc. memo file too.
+        dbfFile.JoinMemoFile();
+      }
+
+      return dbfFile;
+    }   
+       
+    public static DbfTable Open(Stream stream, DbfTableParameters parameters)
+    {
+      return new DbfTable(stream,  parameters);
+    }
+
+    /// <summary>
+    /// Opens a table from the specified stream.
+    /// </summary>
+    /// <param name="stream">The stream of dBASE table to open. The stream is closed when the returned table instance is disposed.</param>
+    /// <returns>A table instance.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="stream"/> is <c>null</c> or <paramref name="headerLoader"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="stream"/> does not allow reading.</exception>
+    /// <exception cref="NotSupportedException">The dBASE table constains one or more columns of unsupported type.</exception>
+    public static DbfTable Open(Stream stream, Encoding encoding = null, bool openMemo = true, StrictHeader? strictHeader = null, DbfTableType tableType = DbfTableType.Undefined)
+    {
+      var parameters = new DbfTableParameters(encoding, openMemo, strictHeader, tableType, null, null);   
       
-      return new DbfTable(stream, encoding);
+      return new DbfTable(stream,  parameters);
     }
 
     //
@@ -243,8 +224,10 @@ namespace NDbfReaderEx
 
       if (dbfTable.isExistsMemoField)
       {
-        Stream streamMemo = CreateHeader_Memo(path, tableType);
-        dbfTable.JoinMemoStream(streamMemo, tableType);
+        MemoFileType memoType = dbfTable.DefaultMemoFileFormatForDbf();
+
+        Stream streamMemo = CreateHeader_Memo(path, memoType);
+        dbfTable.JoinMemoStream(streamMemo, memoType);
       }
 
       return dbfTable;  
@@ -301,67 +284,29 @@ namespace NDbfReaderEx
 
     public DbfHeader    dbfHeader { get { return _header; } }
 
-    public DbfTableType tableType 
-    { 
-      get 
-      { 
-        if (_tableType == DbfTableType.Undefined)
-        {
-          return defaultTableType;
-        }
-
-        return _tableType; 
-      } 
-      
-      internal set 
-      {
-        _tableType = value;
-      } 
-    }
-
-
-    public Encoding encoding 
-    { 
-      get 
-      { 
-        if (_encoding == null)
-        {
-          return defaultEncoding;
-        }
-
-        return _encoding; 
-      } 
-    }
-
     //
 
     public bool isExistsMemoField
     {
       get
       {
-        return Array.Exists(_columns, (c => c.dbfType == NativeColumnType.Memo));
+        return (parameters.openMemo && Array.Exists(_columns, (c => c.dbfType == NativeColumnType.Memo)));
       }
     }
 
-    public bool isEnabledMemoField
+    public bool isEnabledMemoFields
     {
       get
       {
-        return (isExistsMemoField && (_memoFile != null));      
+        return (parameters.openMemo && isExistsMemoField && (_memoFile != null));      
       }
     }
 
     //
 
-    public DbfTableOpenMode openMode     { get; internal set; }                       // Don't forget an info, if available...  
-    public string           fileNameDBF  { get; internal set; }                       // Don't forget an info, if available... good for open memo stream automatically
-    public string           fileNameMemo { get; internal set; }                       // Don't forget an info, if available...
+    public string           dataFileName  { get; internal set; }                       // Don't forget an info, if available... good for open memo stream automatically
+    public string           memoFileName  { get; internal set; }                       // Don't forget an info, if available...
     
-    //
-
-    public static Encoding     defaultEncoding  = null; 
-    public static DbfTableType defaultTableType = DbfTableType.Undefined;
-
     #endregion
 
     #region Technical  ------------------------------------------------------------------------------------
@@ -529,25 +474,29 @@ namespace NDbfReaderEx
     public int                    recCount;
     public int                    firstRecordPosition;
     public int                    rowLength;
+
+    internal bool                 newHeaderStructure    // Data File Header Structure for the dBASE Version 4..7
+    {
+      get
+      {
+        return HasNewHeaderStructure(type);
+      }
+    }
+
+    internal bool                 memoFlag            
+    {
+      get
+      {
+        return (((int)type & 0x80) != 0);
+      }
+    }
+
+    internal static bool HasNewHeaderStructure(DbfTable.DbfFileTypes dbftype)
+    {
+      return (((int)dbftype & 0x04) != 0);
+    }
     //#pragma warning restore 1591
   }
-
-
-  public enum DbfTableOpenMode
-  { 
-    Undefined = 0,
-    Read,
-    ReadWrite,
-    Exclusive
-  }
-
-
-  public enum DbfTableType                                                              // format of DBF (data) and closed DBF/FPT/etc. (memo)
-  {
-    Undefined = 0,                                                                       
-    DBase3,
-    Clipper  //,
-    //FoxPro
-  }
+  
   #endregion
 }

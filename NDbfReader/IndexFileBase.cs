@@ -295,17 +295,17 @@ namespace NDbfReaderEx
       if (appendChar != null)
       {
         string tempString = new String((char)appendChar, 1);                                // is there a best way?
-        var    tempByte   = _dbfTable.encoding.GetBytes(tempString);
+        var    tempByte   = _dbfTable.parametersReadOnly.encoding.GetBytes(tempString);
         
         appendByte = tempByte[0];
       }
 
-      return Seek(_dbfTable.encoding.GetBytes(key), appendByte);
+      return Seek(_dbfTable.parametersReadOnly.encoding.GetBytes(key), appendByte);
     }
 
     public DbfRow  SoftSeek(string key)
     {
-      return SoftSeek(_dbfTable.encoding.GetBytes(key));
+      return SoftSeek(_dbfTable.parametersReadOnly.encoding.GetBytes(key));
     }
 
     public string KeyExpression

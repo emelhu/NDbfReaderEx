@@ -64,7 +64,7 @@ namespace NDbfReaderEx_Test
           break;
 
         case '4':
-          DisplayMemo();
+          DisplayMemo(true);
           dispEllaptedTime = false;
           break;
 
@@ -75,6 +75,16 @@ namespace NDbfReaderEx_Test
 
         case '6':
           OpenNTX();
+          dispEllaptedTime = false;
+          break;
+
+        case '7':
+          ReadMultipleDbfDbtStruct();                                                    
+          dispEllaptedTime = false;
+          break;
+
+        case '8':
+          DisplayMemo(false);
           dispEllaptedTime = false;
           break;
 
@@ -119,18 +129,20 @@ namespace NDbfReaderEx_Test
       Console.WriteLine("  '1' : Test read/content of dBbaseIII and Clipper files.");
       Console.WriteLine("  '2' : Create test file and write rows/content.");
       Console.WriteLine("  '3' : Show raw data too.");
-      Console.WriteLine("  '4' : Show memo field content.");
+      Console.WriteLine("  '4' : Show memo field content dBase3.");
       Console.WriteLine("  '5' : Open NDX index.");
       Console.WriteLine("  '6' : Open NTX index.");
+      Console.WriteLine("  '7' : Show fields/memo from 3/4/7 version of dbf/dbt structure.");
+      Console.WriteLine("  '8' : Show memo field content dBase4.");
     }
     #endregion
 
     #region Test '1' --------------------------------------------------------------------------------------
 
-    private static string[] dbfFiles = new string[6];
-
     static void TestDbaseAndClipperFiles()
     {
+      string[] dbfFiles = new string[6];
+
       dbfFiles[0] = "Test1.dbf";                                    // empty dBase
       dbfFiles[1] = "Test1C.dbf";                                   // empty Clipper
       dbfFiles[2] = "Test2.dbf";                                    // one null row dBase
@@ -143,6 +155,28 @@ namespace NDbfReaderEx_Test
         DisplayHeader(filename);
         More();
       }
+
+      foreach (string filename in dbfFiles)
+      {
+        DisplayRows(filename, false);
+        More();
+      }      
+    }
+
+    // Test '7'
+    static void ReadMultipleDbfDbtStruct()
+    {
+      string[] dbfFiles = new string[6];
+
+      dbfFiles[0] = "BDE_TEST_3_512.dbf";
+      dbfFiles[1] = "BDE_TEST_4_512.dbf";
+      dbfFiles[2] = "BDE_TEST_4_64.dbf";
+      dbfFiles[3] = "BDE_TEST_7_1024.dbf";
+      dbfFiles[4] = "BDE_TEST_7_2048.dbf";
+      dbfFiles[5] = "BDE_TEST_7_64.dbf";
+      
+      DisplayHeader(dbfFiles[0]);
+      More();
 
       foreach (string filename in dbfFiles)
       {
@@ -176,6 +210,10 @@ namespace NDbfReaderEx_Test
       Console.WriteLine("'" + filename + "':");
 
       bool nullFound = false;
+
+      using (DbfTable test = DbfTable.Open(filename, null))                         // null: test codepage byte from DBF header
+      {
+      }
 
       using (DbfTable test = DbfTable.Open(filename, Encoding.GetEncoding(437)))
       {
@@ -294,31 +332,68 @@ namespace NDbfReaderEx_Test
 
     private static void CreateTableAndWriteRows()
     {
-      string fileName1 = "createdTest1.dbf";
-      string fileName2 = "createdTest2.dbf";
-
-      File.Delete(fileName1);                                                // DbfTable.Create can't overwrite exists file - it's a precautionary measure.
-      File.Delete(fileName2);                                                // according to plan --''--
-      File.Delete("createdTest2.dbt");                                       // according to plan: CreateHeader_Memo can't overwrites existing DBT file. 
-
-      var columns = new List<ColumnDefinitionForCreateTable>();
-
-      columns.Add(ColumnDefinitionForCreateTable.StringField("AAA", 10));
-      columns.Add(ColumnDefinitionForCreateTable.NumericField("BBB", 8, 3));
-      columns.Add(ColumnDefinitionForCreateTable.DateField("CCC"));
-      columns.Add(ColumnDefinitionForCreateTable.LogicalField("DDD"));
-
-      using (var dbfTable = DbfTable.Create(fileName1, columns, DbfTable.CodepageCodes.CP_852))
       {
+        string fileName1 = "createdTest1.dbf";
+        string fileName2 = "createdTest2.dbf";
 
+        File.Delete(fileName1);                                                // DbfTable.Create can't overwrite exists file - it's a precautionary measure.
+        File.Delete(fileName2);                                                // according to plan --''--
+        File.Delete("createdTest2.dbt");                                       // according to plan: CreateHeader_Memo can't overwrites existing DBT file. 
+
+        var columns = new List<ColumnDefinitionForCreateTable>();
+
+        columns.Add(ColumnDefinitionForCreateTable.StringField("AAA", 10));
+        columns.Add(ColumnDefinitionForCreateTable.NumericField("BBB", 8, 3));
+        columns.Add(ColumnDefinitionForCreateTable.DateField("CCC"));
+        columns.Add(ColumnDefinitionForCreateTable.LogicalField("DDD"));
+
+        using (var dbfTable = DbfTable.Create(fileName1, columns, DbfTable.CodepageCodes.CP_852, DbfTableType.DBF_Ver3_dBase))
+        {
+          Console.WriteLine("{0} file created.", Path.GetFullPath(fileName1));
+        }
+
+        columns.Add(ColumnDefinitionForCreateTable.MemoField("EEE"));
+
+        using (var dbfTable = DbfTable.Create(fileName2, columns, Encoding.GetEncoding(852), DbfTableType.DBF_Ver3))
+        {
+          Console.WriteLine("{0} file created.", Path.GetFullPath(fileName2));
+        }
+
+        //--- There isn't write code to add rows... yet
       }
 
-      columns.Add(ColumnDefinitionForCreateTable.MemoField("EEE"));
+      // TODO: !!!
 
-      using (var dbfTable = DbfTable.Create(fileName2, columns, Encoding.GetEncoding(852), DbfTableType.Clipper))
-      {
+      //{
+      //  string fileName3 = "createdTest3.dbf";
+      //  string fileName4 = "createdTest4.dbf";
 
-      }
+      //  File.Delete(fileName3);                                                // DbfTable.Create can't overwrite exists file - it's a precautionary measure.
+      //  File.Delete(fileName4);                                                // according to plan --''--
+      //  File.Delete("createdTest4.dbt");                                       // according to plan: CreateHeader_Memo can't overwrites existing DBT file. 
+
+      //  var columns = new List<ColumnDefinitionForCreateTable>();
+
+      //  columns.Add(ColumnDefinitionForCreateTable.StringField("AAAAAAAAAAAAAAA", 10, false));         // Name length more then 10
+      //  columns.Add(ColumnDefinitionForCreateTable.NumericField("BBBBBBBBBBBBBBB", 8, 3, false));
+      //  columns.Add(ColumnDefinitionForCreateTable.DateField("CCCCCCCCCCCCCCC", false));
+      //  columns.Add(ColumnDefinitionForCreateTable.LogicalField("DDDDDDDDDDDDDDD", false));
+
+      //  using (var dbfTable = DbfTable.Create(fileName3, columns, DbfTable.CodepageCodes.CP_852, DbfTableType.DBF_Ver7))
+      //  {
+
+      //  }
+
+      //  columns.Add(ColumnDefinitionForCreateTable.MemoField("EEEEEEEEEEEEEEE", false));
+      //  columns.Add(ColumnDefinitionForCreateTable.NumericField("FFFFFFFFFFFFFFF", 4, false));
+
+      //  using (var dbfTable = DbfTable.Create(fileName4, columns, Encoding.GetEncoding(852), DbfTableType.DBF_Ver7))
+      //  {
+
+      //  }
+
+      //  //--- There isn't write code to add rows... yet
+      //}
     }
     #endregion
 
@@ -335,9 +410,20 @@ namespace NDbfReaderEx_Test
 
     #region Test '4' ----------------------------------------------------------------------------------------
 
-    private static void DisplayMemo()
+    private static void DisplayMemo(bool dBase3File)
     {
-      string dbfFile = "Test4D.dbf";          // created by DBF Viewer Plus (by http://www.alexnolan.net/)
+      string dbfFile;          
+
+      if (dBase3File)
+      {
+        dbfFile = "BDE_TEST_3_512.dbf";                                 // created by DBF Viewer Plus (by http://www.alexnolan.net/)
+      }
+      else
+      {
+        dbfFile = "BDE_TEST_4_512.dbf";                            // created by BDE (Borland Database Engine)
+      }
+
+      
 
       DisplayHeader(dbfFile);
       More();
@@ -350,20 +436,22 @@ namespace NDbfReaderEx_Test
 
       List<DbfRow> rows = new List<DbfRow>();
 
-      using (DbfTable test = DbfTable.Open(dbfFile, Encoding.GetEncoding(437)))
+      if (dBase3File)
       {
-        foreach (DbfRow row in test)
-        { // Store for detached mode
-          rows.Add(row);
+        using (DbfTable test = DbfTable.Open(dbfFile, Encoding.GetEncoding(437)))
+        {
+          foreach (DbfRow row in test)
+          { // Store for detached mode
+            rows.Add(row);
+          }
+
+          DisplayTest4DFields(rows);
+          More();
         }
 
+        Console.WriteLine("Detached rows:");
         DisplayTest4DFields(rows);
-        More();       
-      }
-
-      Console.WriteLine("Detached rows:");
-
-      DisplayTest4DFields(rows);
+      }      
     }
 
     static void DisplayTest4DFields(DbfTable table)
@@ -385,11 +473,13 @@ namespace NDbfReaderEx_Test
     static void DisplayTest4DField(DbfRow row)
     {
       Console.WriteLine();
-      Console.WriteLine("AAA: " + row.GetString("AAA"));
-      Console.WriteLine("BBB: " + row.GetDecimal("BBB"));
-      Console.WriteLine("CCC: " + row.GetDate("CCC")); 
-      Console.WriteLine("DDD: " + row.GetBoolean("DDD")); 
-      Console.WriteLine("EEE: " + row.GetString("EEE"));
+      Console.WriteLine("C10: " + row.GetString("C10"));
+      Console.WriteLine("D:   " + row.GetDate("D").ToShortDateString());
+      Console.WriteLine("L:   " + row.GetBoolean("L")); 
+      Console.WriteLine("I:   " + row.GetDecimal("I"));                                       // row.GetInt32("I") + " | " + 
+      Console.WriteLine("N5:  " + row.GetDecimal("N5"));
+      Console.WriteLine("N10: " + row.GetDecimal("N10"));
+      Console.WriteLine("B:   " + row.GetString("B"));
     }
     #endregion
 
@@ -397,6 +487,8 @@ namespace NDbfReaderEx_Test
 
     private static void OpenNDX()
     {
+      Console.WriteLine("Isn't realized fully yet!");
+
       string dbfName = "test_ix.dbf";
       string ndxName = "test_ix.ndx";
 
@@ -442,7 +534,7 @@ namespace NDbfReaderEx_Test
 
     private static void OpenNTX()
     {
-      Console.WriteLine("Don't realized yet!");
+      Console.WriteLine("Isn't realized yet!");
     }
     #endregion
   }

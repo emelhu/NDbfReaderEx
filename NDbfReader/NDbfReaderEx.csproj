@@ -59,6 +59,7 @@
     <Compile Include="ColumnDefinitionForCreateTable.cs" />
     <Compile Include="CreatePocoClass.cs" />
     <Compile Include="DbfTableEnumerator.cs" />
+    <Compile Include="DbfTableParameters.cs" />
     <Compile Include="DbfTablePoco.cs" />
     <Compile Include="IIndexFile.cs" />
     <Compile Include="IMemoFile.cs" />

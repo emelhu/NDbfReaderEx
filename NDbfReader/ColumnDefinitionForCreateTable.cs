@@ -13,10 +13,13 @@ namespace NDbfReaderEx
     protected readonly NativeColumnType dbfType_;
 
     public static bool onlyUppercaseNameValid = true;
+    public static bool dBase3columnDefault    = true;
 
-    private ColumnDefinitionForCreateTable(string name, NativeColumnType dbfType, short size, short dec = 0)
+    private ColumnDefinitionForCreateTable(string name, NativeColumnType dbfType, short size, short dec = 0, bool? dBase3column = null)
     {
-      if (! IsValidName(name, onlyUppercaseNameValid))
+      bool dbf3col = dBase3column ?? dBase3columnDefault;
+
+      if (! IsValidName(name, onlyUppercaseNameValid, dbf3col))
       {
         throw new ArgumentOutOfRangeException("name", "Invalid name (character set, length, etc.) !");
       }
@@ -26,35 +29,45 @@ namespace NDbfReaderEx
         throw new ArgumentOutOfRangeException("size");
       }
 
+      if (! IsValidType(dbfType, dbf3col))
+      {
+        throw new ArgumentOutOfRangeException("name", "Invalid type for dBaseIII! [" + dbfType.ToString() + "]");
+      }      
+
       this.name_    = name;
       this.dbfType_ = dbfType;
       this.size_    = size;
       this.dec_     = dec;
     }
 
-    public static ColumnDefinitionForCreateTable StringField(string name, short size)
+    public static ColumnDefinitionForCreateTable StringField(string name, short size, bool? dBase3column = null)
     {
-      return new ColumnDefinitionForCreateTable(name, NativeColumnType.Char, size);
+      return new ColumnDefinitionForCreateTable(name, NativeColumnType.Char, size, 0, dBase3column);
     }
 
-    public static ColumnDefinitionForCreateTable NumericField(string name, short size, short dec = 0)
+    public static ColumnDefinitionForCreateTable NumericField(string name, short size, short dec = 0, bool? dBase3column = null)
     {
-      return new ColumnDefinitionForCreateTable(name, NativeColumnType.Numeric, size, dec);
+      return new ColumnDefinitionForCreateTable(name, NativeColumnType.Numeric, size, dec, dBase3column);
     }
 
-    public static ColumnDefinitionForCreateTable LogicalField(string name)
+    public static ColumnDefinitionForCreateTable NumericField(string name, short size, bool? dBase3column = null)
     {
-      return new ColumnDefinitionForCreateTable(name, NativeColumnType.Logical, 1);
+      return new ColumnDefinitionForCreateTable(name, NativeColumnType.Numeric, size, 0, dBase3column);
     }
 
-    public static ColumnDefinitionForCreateTable DateField(string name)
+    public static ColumnDefinitionForCreateTable LogicalField(string name, bool? dBase3column = null)
     {
-      return new ColumnDefinitionForCreateTable(name, NativeColumnType.Date, 8);
+      return new ColumnDefinitionForCreateTable(name, NativeColumnType.Logical, 1, 0, dBase3column);
     }
 
-    public static ColumnDefinitionForCreateTable MemoField(string name)
+    public static ColumnDefinitionForCreateTable DateField(string name, bool? dBase3column = null)
     {
-      return new ColumnDefinitionForCreateTable(name, NativeColumnType.Memo, 10);
+      return new ColumnDefinitionForCreateTable(name, NativeColumnType.Date, 8, 0, dBase3column);
+    }
+
+    public static ColumnDefinitionForCreateTable MemoField(string name, bool? dBase3column = null)
+    {
+      return new ColumnDefinitionForCreateTable(name, NativeColumnType.Memo, 10, 0, dBase3column);
     }
 
     // because only dBase3/Clipper DBF file format enabled for create DbfTable, 'I' and 'F' types are not possible.
@@ -114,15 +127,31 @@ namespace NDbfReaderEx
       }
     }
 
-      
-    public static bool IsValidName(string name, bool? onlyUppercaseValid = null)
+    public static bool IsValidType(NativeColumnType dbfType, bool? dBase3column = null)
     {
+      bool dbf3col = dBase3column ?? dBase3columnDefault;
+
+      if (dbf3col)
+      {
+        if ((dbfType == NativeColumnType.Long) || (dbfType == NativeColumnType.Float))
+        {
+          return false;
+        }
+      }
+
+      return true;
+    }
+      
+    public static bool IsValidName(string name, bool? onlyUppercaseValid = null, bool? dBase3column = null)
+    {
+      bool dbf3col = dBase3column ?? dBase3columnDefault;
+
       if (String.IsNullOrWhiteSpace(name))
       {
         return false;
       }
 
-      if (name.Length > 10)
+      if (name.Length > (dbf3col ? 10 : 32))
       {
         return false;
       }

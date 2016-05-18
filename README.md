@@ -156,6 +156,18 @@ Clone the repository and run `build.cmd`.
 Openning the solution requires Visual Studio 2012 or newer (including Express editions).
 
 
+## History
+
+Version 1.1
+  Read DBF & DBT structure version 3
+  
+Version 1.3
+  Read table data with PoCo class
+  
+Version 1.4  
+  Read DBF (data) structure version 4..7 too
+  Read DBT (memo) structure version 4 too
+
 ## Tests & Examples
 
 You can see the supplied source of NDbfReaderEx_Test.exe

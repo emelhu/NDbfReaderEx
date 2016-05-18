@@ -28,11 +28,18 @@ Plan: add a simple row update and insert feature
 
 History:
 
+1.1 --- read only dBaseIII and Clipper DBFs.  (DBF version 3)
+
 Added with 1.3 version:  (Read PoCo class from DBF table, and help for create PoCo class definition)
 
   class CreatePocoClass                 (CreatePocoClass.cs)
   func  Reader/Read<T>()                (Reader.cs)
   func  Reader/Get<T>()                 (Reader.cs)
   func  DbfTable/GetPocoEnumerator<T>() (DbfTable.cs)
+
+Added with 1.4 version:  (Read PoCo class from DBF table, and help for create PoCo class definition)
+  class DbfTableParameters              (DbfTableParameters.cs)
+
+  Read DBF version 3 & 4..7 too, and read DBT (memo) version 3 & 4 too.
 
 ***************************************************************************************************

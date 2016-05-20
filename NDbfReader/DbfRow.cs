@@ -199,6 +199,11 @@ namespace NDbfReaderEx
       return GetValue<decimal>(columnName);
     }
 
+    public virtual double GetDouble(string columnName)
+    {
+      return GetValue<Double>(columnName);
+    }
+
     /// <summary>
     /// Gets a <see cref="Decimal"/> value of the specified column of the current row.
     /// </summary>
@@ -221,6 +226,13 @@ namespace NDbfReaderEx
       CheckColumn(column);
 
       return GetValue<decimal>(column);
+    }
+
+    public virtual double GetDouble(IColumn column)
+    {
+      CheckColumn(column);
+
+      return GetValue<double>(column);
     }
 
     /// <summary>
@@ -478,14 +490,19 @@ namespace NDbfReaderEx
     /// The underlying stream is non-seekable and columns are read out of order.
     /// </exception>
     /// <exception cref="ObjectDisposedException">The parent table is disposed.</exception>
-    protected T GetValue<T>(IColumn column)
+    public T GetValue<T>(IColumn column)
     {
       CheckColumn(column);
 
-      if (column.type != typeof(T))
+      if (! typeof(T).IsAssignableFrom(column.type))
       {
         throw new ArgumentOutOfRangeException("column", "The column's type does not match the method's return type.");
       }
+
+      //if (column.type != typeof(T))
+      //{
+      //  throw new ArgumentOutOfRangeException("column", "The column's type does not match the method's return type.");
+      //}
 
       var typedColumn = (Column<T>)column;
 

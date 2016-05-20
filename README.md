@@ -170,8 +170,11 @@ Version 1.4
   
 Version 1.4.1 
   You can read double typed dbf field (type byte is 'O' in dbf header)
+  
   **WARNING! Because the value hasn't a stabdard IEEE double bit structure only positive value is valid!**
+  
   *[If anyone can correct this code/situation please help me!]*   
+
 
 ## Tests & Examples
 

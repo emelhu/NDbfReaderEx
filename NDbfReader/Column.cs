@@ -65,11 +65,16 @@ namespace NDbfReaderEx
           break;
 
         case NativeColumnType.Float:
-        case NativeColumnType.Numeric:
+        case NativeColumnType.Numeric:        
           //if (dec > 0)
           //{
           //  displayWidth_++;                                                            // for decimal dot
           //}
+          leftSideDisplay_ = false;
+          break;
+
+        case NativeColumnType.Double:
+          displayWidth_    = 18; 
           leftSideDisplay_ = false;
           break;
 

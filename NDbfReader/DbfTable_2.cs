@@ -412,6 +412,11 @@ namespace NDbfReaderEx
 
       columnOffset = calcOffset;                                                      // isn't stored in header by dBase/Clipper, must calculate by 'calcOffset'                                                  
 
+      if ((char)columnType == '+')                                                    // TODO: set column to ReadOnly
+      { // Because store as same format and only read field data 
+        columnType = NativeColumnType.Long;
+      }
+
       switch (columnType)
       {
         case NativeColumnType.Char:
@@ -424,14 +429,20 @@ namespace NDbfReaderEx
           return new DateTimeColumn(columnName, columnType, columnOffset);
 
         case NativeColumnType.Long:
+          Debug.Assert(columnSize == 4);
           return new Int32Column(columnName, columnType, columnOffset);
 
         case NativeColumnType.Logical:
+          Debug.Assert(columnSize == 1);
           return new BooleanColumn(columnName, columnType, columnOffset);
 
         case NativeColumnType.Numeric:
         case NativeColumnType.Float:
           return new DecimalColumn(columnName, columnType, columnOffset, columnSize, columnDec);
+
+        case NativeColumnType.Double:
+          Debug.Assert(columnSize == 8);
+          return new DoubleColumn(columnName, columnType, columnOffset);
 
         default:
           throw ExceptionFactory.CreateNotSupportedException("The {0} column's type '{1}' is not supported.", columnName, columnType);

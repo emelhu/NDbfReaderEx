@@ -86,6 +86,9 @@
     <None Include="BDE_TEST_7_64.DBT">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="Seged7.dbf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="TEST1.DBF">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

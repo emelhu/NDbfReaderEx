@@ -167,6 +167,11 @@ Version 1.3
 Version 1.4  
   Read DBF (data) structure version 4..7 too
   Read DBT (memo) structure version 4 too
+  
+Version 1.4.1 
+  You can read double typed dbf field (type byte is 'O' in dbf header)
+  **WARNING! Because the value hasn't a stabdard IEEE double bit structure only positive value is valid!**
+  *[If anyone can correct this code/situation please help me!]*   
 
 ## Tests & Examples
 

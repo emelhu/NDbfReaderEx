@@ -42,4 +42,8 @@ Added with 1.4 version:  (Read PoCo class from DBF table, and help for create Po
 
   Read DBF version 3 & 4..7 too, and read DBT (memo) version 3 & 4 too.
 
+Added with 1.4.1 version: double dbf field (type byte is 'O' in dbf header)
+  WARNING! Because the value hasn't a stabderd IEEE double bit structure only positive value is valid!
+  [If anyone can correct this code/situation please help me!] 
+
 ***************************************************************************************************

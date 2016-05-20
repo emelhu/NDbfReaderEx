@@ -35,7 +35,8 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <DocumentationFile>bin\Release\NDbfReaderEx.xml</DocumentationFile>
+    <DocumentationFile>
+    </DocumentationFile>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
@@ -61,6 +62,7 @@
     <Compile Include="DbfTableEnumerator.cs" />
     <Compile Include="DbfTableParameters.cs" />
     <Compile Include="DbfTablePoco.cs" />
+    <Compile Include="DoubleColumn.cs" />
     <Compile Include="IIndexFile.cs" />
     <Compile Include="IMemoFile.cs" />
     <Compile Include="IndexFileBase.cs" />

@@ -45,6 +45,12 @@
     /// Number stored as a string, right justified, and padded with blanks to the width of the field. 
     /// </summary>
     /// <remarks>F in ASCII</remarks>
-    Float = 0x46
+    Float = 0x46,
+
+    /// <summary>
+    /// Number stored as a double (8 byte binary value) 
+    /// </summary>
+    /// <remarks>O in ASCII</remarks>
+    Double = 0x4F
   }
 }

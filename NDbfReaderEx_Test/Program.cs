@@ -88,6 +88,11 @@ namespace NDbfReaderEx_Test
           dispEllaptedTime = false;
           break;
 
+        case '9':
+          DisplayRealTest();
+          dispEllaptedTime = false;
+          break;
+
         default:
           if (args.Length > 1)
           {
@@ -116,7 +121,7 @@ namespace NDbfReaderEx_Test
       Console.WriteLine();
       Console.WriteLine("...press 'enter' to close window.");
       Console.ReadLine();      
-    }
+    }    
 
     public static void DisplayHelp(bool fullText)
     {
@@ -134,6 +139,7 @@ namespace NDbfReaderEx_Test
       Console.WriteLine("  '6' : Open NTX index.");
       Console.WriteLine("  '7' : Show fields/memo from 3/4/7 version of dbf/dbt structure.");
       Console.WriteLine("  '8' : Show memo field content dBase4.");
+      Console.WriteLine("  '9' : Read dBase7 real field.");
     }
     #endregion
 
@@ -535,6 +541,23 @@ namespace NDbfReaderEx_Test
     private static void OpenNTX()
     {
       Console.WriteLine("Isn't realized yet!");
+    }
+    #endregion
+
+    #region Test '9' ----------------------------------------------------------------------------------------
+
+    private static void DisplayRealTest()
+    {
+      var dbfName = "Seged7.dbf";
+
+      using (DbfTable test = DbfTable.Open(dbfName))
+      { // dbfName isn't closed but reopen an other dbf class
+        DisplayHeader(dbfName);
+        More();
+
+        DisplayRows(dbfName, false);
+        More();
+      }
     }
     #endregion
   }

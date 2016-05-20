@@ -29,6 +29,12 @@ using System.Text;
 // http://www.zelczak.com/clipp_en.htm                                  --- NTX ctructure
 // http://shapelib.maptools.org/codepage.html
 
+// http://www.clicketyclick.dk/databases/xbase/format/index.html
+// https://en.wikipedia.org/wiki/DBase
+// http://www.johnbrown.com.au/approach/webfaq04040210.html
+// http://devzone.advantagedatabase.com/dz/webhelp/advantage9.0/server1/dbf_field_types_and_specifications.htm   FoxPro memo len 4 byte
+// http://msdn.microsoft.com/en-us/library/st4a0s68%28VS.80%29.aspx
+
 namespace NDbfReaderEx
 {
   /// <summary>

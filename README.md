@@ -195,3 +195,14 @@ Sorry, English is not my native language, please send criticism and/or correctio
 You can contact to me directly:  emel@emel.hu 
 
 Laszlo Moravecz / [www.emel.hu](http://www.emel.hu)
+
+*****************************************************************************************
+
+Sorry, I had closed yet these.
+Last of my project in Clipper is the past already :)
+
+So I shouldn't write modification to my production code :)
+
+Please fork it :)
+
+*****************************************************************************************
